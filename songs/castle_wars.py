@@ -50,7 +50,9 @@ FORM = [("intro", 0, 8), ("build", 8, 8), ("drop1", 16, 32), ("bridge", 48, 16),
         ("ramp", 72, 8), ("drop2", 80, 32), ("outro", 112, 16)]
 BARS = 128
 LEVELS = {"sample": -21, "osti": -25, "strings": -28, "break": -19, "crash": -33, "reese": -27, "sub": -28,
-          "siren": -31, "stab": -26, "boom": -22, "vox": -24, "chops": -27}
+          "siren": -31, "stab": -26, "boom": -22, "vox": -24, "chops": -27,
+          "organ": -23}
+ORGAN_LIFT = (48, 64, 3.0)    # the bridge: the organ steps out front (bars, dB)
 VOX_HITS = [(0, 3), (6, 2), (10, 3), (14, 2), (16, 3), (22, 2), (26, 2), (28, 4)]   # (16th of 2 bars, 16ths)
 RAMP_STEPS = [(75, 2, 40), (76, 4, 32), (77, 7, 24), (78, 12, 18)]  # (bar, semitones up, grain ms)
 STRETCH_FILLS = {23: (4, 2.0), 39: (12, "rubber"), 87: (4, 2.0), 103: (12, "rubber")}  # bar: (slice, ratio)
@@ -314,13 +316,15 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     intro = Record(SRC, ["taiko drum", "timpani"], BPM, **rec)
     osti = Record(SRC, ["french horns", "pizzicato", "harp", "timpani"], BPM, **rec)
     theme = Record(SRC, ["trombone", "syn brass1", "xylophone"], BPM, **rec)
-    pads = Record(SRC, ["slow strings", "tremolo strings", "church organ"], BPM, **rec)
+    pads = Record(SRC, ["slow strings", "tremolo strings"], BPM, **rec)
+    organ = Record(SRC, ["church organ"], BPM, **rec)
     vox = Record(SRC, ["choir ahhs"], BPM, programs={"choir ahhs": 53}, **rec)   # the choir sung as 'oohs'
     brk = Record(SRC, ["trombone", "harp", "pizzicato"], BPM, **rec)
 
     def place_pads(rec_bar, song_bar, nbars, gain=1.0):
         place_bars(tl, "strings", pads, rec_bar, song_bar, nbars, gain)
         place_bars(tl, "vox", vox, rec_bar, song_bar, nbars, gain)
+        place_bars(tl, "organ", organ, rec_bar, song_bar, nbars, gain)
 
     place_bars(tl, "osti", intro, 0, 0, 8)                               # intro: the war drum under the oohs,
     pad = vox.bar(10, 14, tail_beats=2)                                  # stretched to half speed on the sampler
@@ -465,6 +469,9 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     v = fx.lowpass(fx.highpass(b["vox"], 170, 2), 5200, 2)                 # the oohs: a sampled choir pad
     v = fx.bitcrush(fx.saturate(v, 1.3), 12, 26040, mix=0.6)
     b["vox"] = fx.widen(fx.wow_flutter(v, wow_ms=1.4, seed=34), 1.6)
+    og = fx.saturate(fx.highpass(b["organ"], 220, 2), 1.6)               # the organ: its own, brighter bus
+    og = fx.lowpass(fx.bitcrush(og, 12, 26040, mix=0.5), 7500, 2)
+    b["organ"] = fx.widen(fx.detune_chorus(fx.wow_flutter(og, wow_ms=0.8, seed=35), cents=5, mix=0.3), 1.3)
     c = fx.bitcrush(fx.highpass(b["chops"], 280, 2), 12, 22050)
     b["chops"] = fx.autopan(fx.saturate(c, 1.6), rate=BPM / 60 / 8, depth=0.35, phase=0.25)
 
@@ -489,13 +496,17 @@ def build(out_dir: Path, stems: bool = False) -> dict:
 
     for k, target in LEVELS.items():
         b[k] = fx.level(b[k], target)
+    l0, l1, lift = ORGAN_LIFT
+    tt = np.arange(n) / SR
+    up = np.interp(tt, [bar_s(l0) - 0.3, bar_s(l0), bar_s(l1), bar_s(l1) + 0.3], [1, 10 ** (lift / 20)] * 2)
+    b["organ"] = b["organ"] * np.where((tt > bar_s(l0) - 0.3) & (tt < bar_s(l1) + 0.3), up, 1.0)[:, None]
 
     send = (b["sample"] * 0.35 + b["osti"] * 0.3 + b["strings"] * 0.6 + b["break"] * 0.08 + b["crash"] * 0.3
-            + b["stab"] * 0.4 + b["chops"] * 0.5)
+            + b["stab"] * 0.4 + b["chops"] * 0.5 + b["organ"] * 0.4)
     verb = fx.reverb(send, seconds=2.2, damp_hz=3600, predelay_ms=18)
     verb = verb + fx.reverb(b["vox"], seconds=4.5, damp_hz=4200, predelay_ms=40, seed=48) * 0.9   # the cathedral
 
-    music = (b["sample"] + b["osti"] + b["strings"] + b["vox"] + b["chops"]) * fx.duck(n, tl.kicks, depth_db=2.0, release_ms=140)[:, None]
+    music = (b["sample"] + b["osti"] + b["strings"] + b["vox"] + b["chops"] + b["organ"]) * fx.duck(n, tl.kicks, depth_db=2.0, release_ms=140)[:, None]
     low = (b["reese"] + b["sub"]) * fx.duck(n, tl.kicks, depth_db=3.5, release_ms=110)[:, None]
     drum_bus = fx.tape(fx.compress(b["break"] + b["crash"], -15, 3, 4, 120, makeup_db=1), 1.4, 12000)
     hiss = AMB.hiss(n / SR, -62, seed=46)
