@@ -346,3 +346,27 @@ def crickets(seconds, level_db=-42.0, seed=51, count=4):
     x = fx.lowpass(x, 6500, 2)
     x = x + fx.reverb(x, seconds=0.9, damp_hz=5000, predelay_ms=20, hp=2000) * 0.3
     return fx.level(x, level_db)
+
+
+def fountain(seconds, level_db=-42.0, seed=61, rate=26.0, pan=0.0):
+    """A park fountain a few metres off: a low body of falling water plus resonant bubbles (decaying sines whose
+    pitch rises, 300-1300 Hz), all below 2.8 kHz. Low and gurgling with no high ticks, so it never reads as rain."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * SR)
+    x = np.zeros((n, 2), dtype=np.float32)
+    k = rng.poisson(rate * seconds)
+    for t0 in np.sort(rng.uniform(0, seconds - 0.2, k)):
+        f0, tau = rng.uniform(300, 1300), rng.uniform(0.008, 0.035)
+        m = int(tau * 5 * SR)
+        tt = np.arange(m) / SR
+        ph = 2 * np.pi * np.cumsum(f0 * (1 + rng.uniform(2, 6) * tt)) / SR
+        b = (np.sin(ph) * np.exp(-tt / tau) * rng.uniform(0.2, 1.0) ** 2).astype(np.float32)
+        p = np.clip(pan + rng.normal(0, 0.35), -1, 1)
+        i = int(t0 * SR)
+        x[i:i + m, 0] += b * np.sqrt((1 - p) / 2)
+        x[i:i + m, 1] += b * np.sqrt((1 + p) / 2)
+    body = fx.bandpass(_brown(n, rng), 120, 1100, 2)
+    body = body / max(1e-9, np.sqrt(np.mean(body ** 2))) * np.sqrt(np.mean(x ** 2)) * 0.8
+    x = fx.lowpass(x + body, 2800, 2)
+    x = x + fx.reverb(x, seconds=0.8, damp_hz=2500, predelay_ms=12, hp=200) * 0.35
+    return fx.level(x, level_db)

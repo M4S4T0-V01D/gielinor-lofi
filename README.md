@@ -16,6 +16,7 @@ against the song's own chords.
 | - | Emotion (By the Hearth) | `emotion.mid` (Ian Taylor), 4/4 B minor 90 bpm | 84 bpm, Bb minor | built, awaiting listen |
 | - | Newbie Melody (Tutorial Island) | `newbie_melody.mid` (Ian Taylor), 4/4 C mixolydian 100 bpm | 94 bpm, B mixolydian | built, awaiting listen |
 | - | Arabian (Al Kharid) | `arabian.mid` (Ian Taylor), 4/4 B phrygian 150 bpm | 72 bpm half-time, Bb phrygian | built, awaiting listen |
+| - | Fanfare (Falador Park) | `fanfare.mid` (Ian Taylor), 4/4 E minor 120 bpm | 116 bpm lo-fi house, Eb minor | built, awaiting listen |
 
 Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
 
@@ -70,7 +71,8 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
 ## Album cohesion rules
 
 - **Tempo:** 72-84 bpm (Newbie Melody runs at 94 so the tune doesn't drag; Arabian is pressed half-time, so its
-  tune keeps the source's speed over a 72 bpm beat). Swing 0.57-0.60. Snare laid back by about 14 ms.
+  tune keeps the source's speed over a 72 bpm beat; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
+  120 bpm march). Swing 0.57-0.60. Snare laid back by about 14 ms.
 - **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
 - **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
   album stays dark and warm.
@@ -105,6 +107,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   - Arabian: a power kit (16) with a darbuka layer on congas: maqsum in the A sections (doum on 1 and 3, tek on
     e+1, e+2 and 4, ka ghosts), a 3+3+2 malfuf under handclaps in B, a riq on the off-8ths auto-panned across the
     field, a finger-cymbal (triangle) every four bars.
+  - Fanfare: a dance kit (26) in four on the floor, a clap on 2 and 4 with a snare under the 4, an open hat on
+    every off-beat, shuffled 16th closed hats, rim ghosts; organ stabs on the off-beats pumped 7 dB by the kick.
+    B and the calls add a shaker, the C breakdown drops the kick, and the source's march snare (orchestral kit)
+    ticks quietly under A2.
 - **No signature moves twice:** each transition trick belongs to one track. Build transitions from the song's
   own source material where you can, and only add a trick if the song needs it. Taken so far:
   - 01 Harmony: tape stop into A3, reversed pickups into A1, B and the outro, A4 stutter.
@@ -121,6 +127,9 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     range when the beat drops, and the band crossfades back into it as the song ends.
   - Arabian: the break: the band drops out and the source's own drum tracks play alone under an oud taqsim on a
     held drone, with crickets coming up, until a darbuka roll into a crash throws the beat back in for B2.
+  - Fanfare: the parade pass: at the first fanfare call the house band stops and the source's own trumpets,
+    horn and drums march past the listener from left to right (distance gain, air-absorption lowpass, angle pan,
+    a small Doppler bend; `parade_pass()` in songs/fanfare.py) over the park fountain, then the beat slams back.
 
 ## Licensing notes
 
