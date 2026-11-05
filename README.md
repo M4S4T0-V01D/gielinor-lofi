@@ -14,6 +14,8 @@ against the song's own chords.
 | 06 | Scape Main | `scape main.mid` | - | planned |
 | 07 | Castle Wars | `castlewars.mid`, 4/4 E minor 180 bpm | 174 bpm jungle, D# minor | built, awaiting listen |
 | - | Emotion (By the Hearth) | `emotion.mid` (Ian Taylor), 4/4 B minor 90 bpm | 84 bpm, Bb minor | built, awaiting listen |
+| - | Newbie Melody (Tutorial Island) | `newbie_melody.mid` (Ian Taylor), 4/4 C mixolydian 100 bpm | 94 bpm, B mixolydian | built, awaiting listen |
+| - | Arabian (Al Kharid) | `arabian.mid` (Ian Taylor), 4/4 B phrygian 150 bpm | 72 bpm half-time, Bb phrygian | built, awaiting listen |
 
 Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
 
@@ -67,7 +69,8 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
 
 ## Album cohesion rules
 
-- **Tempo:** 72-84 bpm. Swing 0.57-0.60. Snare laid back by about 14 ms.
+- **Tempo:** 72-84 bpm (Newbie Melody runs at 94 so the tune doesn't drag; Arabian is pressed half-time, so its
+  tune keeps the source's speed over a 72 bpm beat). Swing 0.57-0.60. Snare laid back by about 14 ms.
 - **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
 - **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
   album stays dark and warm.
@@ -95,6 +98,13 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   - Emotion: a brush kit (40) with a shaker in place of hats (accents on the off-8ths), the kick on 1, a+2 and 3
     (1, e+1, 3, a+3 on odd bars), the brush slap on 2 and 4 dragged 30 ms with a clap on 4, sidestick ghosts;
     the B sections are kick, sidestick and an off-8th shaker.
+  - Newbie Melody: a bright kit (25), the kick on 1, a+1 and 3, snare on 2 and 4, a rim on the last 16th of odd
+    bars, 8th hats with an open hat on the and of 2; B is kick and sidestick; the bells and C sections switch to
+    a triplet grid (kick on 1, the last triplet of 2 and on 3, snare on 2 and 4, triplet hats); the minor turn is half-time with a
+    clap on 3 and pedal hats.
+  - Arabian: a power kit (16) with a darbuka layer on congas: maqsum in the A sections (doum on 1 and 3, tek on
+    e+1, e+2 and 4, ka ghosts), a 3+3+2 malfuf under handclaps in B, a riq on the off-8ths auto-panned across the
+    field, a finger-cymbal (triangle) every four bars.
 - **No signature moves twice:** each transition trick belongs to one track. Build transitions from the song's
   own source material where you can, and only add a trick if the song needs it. Taken so far:
   - 01 Harmony: tape stop into A3, reversed pickups into A1, B and the outro, A4 stutter.
@@ -107,6 +117,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     (`wind_up`, a rising pitch ramp).
   - Emotion: the source's own tom pickups into both B sections, and a held breath before B1: the band drops
     for a beat and a half under a granular freeze of the F# chord (`freeze()` in songs/emotion.py).
+  - Newbie Melody: the intro and outro play through a tiny speaker (`fx.small_speaker`) that snaps open to full
+    range when the beat drops, and the band crossfades back into it as the song ends.
+  - Arabian: the break: the band drops out and the source's own drum tracks play alone under an oud taqsim on a
+    held drone, with crickets coming up, until a darbuka roll into a crash throws the beat back in for B2.
 
 ## Licensing notes
 

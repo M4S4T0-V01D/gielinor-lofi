@@ -121,6 +121,48 @@ def sway(x, depth_ms, hz):
     return (x[i] * (1 - f) + x[np.minimum(i + 1, n - 1)] * f).astype(np.float32)
 
 
+def phaser(x, rate=0.25, lo=300.0, hi=2400.0, stages=4, feedback=0.35, mix=0.5, block=256):
+    """A swept allpass phaser: `stages` first-order allpasses whose corner glides between lo and hi (log) at
+    `rate` Hz, the two channels a quarter cycle apart. Coefficients change per block; the filter state carries."""
+    from scipy.signal import lfilter
+    n = len(x)
+    out = np.empty_like(x)
+    for ch, ph in ((0, 0.0), (1, np.pi / 2)):
+        zi = [np.zeros(1) for _ in range(stages)]
+        fb = 0.0
+        y = np.empty(n, dtype=np.float64)
+        for i0 in range(0, n, block):
+            seg = x[i0:i0 + block, ch].astype(np.float64)
+            t = (i0 + block / 2) / SR
+            f = lo * (hi / lo) ** (0.5 - 0.5 * np.cos(2 * np.pi * rate * t + ph))
+            w = np.tan(np.pi * f / SR)
+            a = (w - 1) / (w + 1)
+            s = seg + fb * feedback
+            for k in range(stages):
+                s, zi[k] = lfilter([a, 1.0], [1.0, a], s, zi=zi[k])
+            fb = s[-1]
+            y[i0:i0 + len(seg)] = s
+        out[:, ch] = x[:, ch] * (1 - mix * 0.5) + y * mix * 0.5
+    return out.astype(np.float32)
+
+
+def autopan(x, rate, depth=0.6, phase=0.0):
+    """A slow constant-power pan LFO (rate in Hz; depth 1 = hard left to hard right)."""
+    t = np.arange(len(x)) / SR
+    p = depth * np.sin(2 * np.pi * rate * t + phase)
+    a = (p + 1) * np.pi / 4
+    m = x.mean(axis=1)
+    return (np.stack([m * np.cos(a), m * np.sin(a)], axis=1) * np.sqrt(2)).astype(np.float32)
+
+
+def small_speaker(x, lo=480.0, hi=3400.0, drive=1.8):
+    """A tiny speaker in the room: mono, no lows or highs, a cone resonance near 1.4 kHz, a little breakup."""
+    m = x.mean(axis=1, keepdims=True).repeat(2, axis=1)
+    y = bandpass(m, lo, hi, 2)
+    y = y + bandpass(y, 1100, 1800, 2) * 0.8
+    return saturate(y, drive)
+
+
 def widen(x, amount=1.2):
     m = (x[:, 0] + x[:, 1]) / 2
     s = (x[:, 0] - x[:, 1]) / 2 * amount

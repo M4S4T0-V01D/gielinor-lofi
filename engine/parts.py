@@ -74,6 +74,12 @@ VOICINGS = {
     "F#7b13": v("F#2", "E3", "A#3", "D4"),
     "F#9":    v("F#2", "E3", "G#3", "A#3", "C#4"),
     "Bmaj9":  v("B2", "A#3", "C#4", "D#4", "F#4"),
+    # Newbie Melody (C mixolydian: C and Gm, then a C minor turn)
+    "C69":    v("C3", "E3", "A3", "D4", "G4"),
+    "Gm11":   v("G2", "F3", "A#3", "C4", "D4"),
+    # Arabian (B phrygian; the B section over an E pedal)
+    "Bphr":   v("B2", "F#3", "A3", "C4", "E4"),
+    "Cmaj7/B": v("B2", "E3", "G3", "C4"),
 }
 
 

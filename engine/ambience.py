@@ -263,3 +263,86 @@ def gulls(seconds, level_db=-34.0, seed=22, rate=1 / 14, times=()):
     x = fx.lowpass(fx.highpass(x, 600, 2), 4500, 2)      # distance takes the edge off
     x = x + fx.reverb(x, seconds=1.4, damp_hz=3000, predelay_ms=40) * 0.5
     return fx.level(x, level_db)
+
+
+def _tone(f, amp):
+    """A sine following a per-sample frequency curve under an amplitude curve."""
+    return (np.sin(np.cumsum(2 * np.pi * f / SR)) * amp).astype(np.float32)
+
+
+def _song_bird(rng, kind):
+    """One phrase from a small garden bird: 'tweet' (falling chirps), 'trill' (a fast pulsed note), or 'whistle'
+    (a clear two-note fee-bee)."""
+    if kind == "tweet":
+        out = []
+        f0 = rng.uniform(3800, 5200)
+        for _ in range(rng.integers(3, 8)):
+            L = int(rng.uniform(0.04, 0.08) * SR)
+            u = np.arange(L) / L
+            f = f0 * (1.25 - 0.45 * u) * (1 + 0.04 * np.sin(2 * np.pi * 90 * np.arange(L) / SR))
+            out += [_tone(f, np.sin(np.pi * u) ** 1.5), np.zeros(int(rng.uniform(0.05, 0.11) * SR), np.float32)]
+            f0 *= rng.uniform(0.95, 1.04)
+        return np.concatenate(out)
+    if kind == "trill":
+        L = int(rng.uniform(0.5, 1.1) * SR)
+        u = np.arange(L) / L
+        t = np.arange(L) / SR
+        f = rng.uniform(3200, 4400) * (1 + 0.06 * u)
+        pulse = np.clip(np.sin(2 * np.pi * rng.uniform(18, 28) * t), 0, None) ** 2
+        return _tone(f, pulse * np.minimum(1, u / 0.15) * np.minimum(1, (1 - u) / 0.2))
+    f1 = rng.uniform(3300, 4100)
+    parts = []
+    for f, d in ((f1, 0.28), (f1 * rng.uniform(0.78, 0.86), 0.34)):
+        L = int(d * SR)
+        u = np.arange(L) / L
+        parts += [_tone(np.full(L, f) * (1 - 0.02 * u), np.minimum(1, u / 0.1) * np.minimum(1, (1 - u) / 0.3)),
+                  np.zeros(int(0.06 * SR), np.float32)]
+    return np.concatenate(parts)
+
+
+def birds(seconds, level_db=-40.0, seed=41, rate=0.22, quiet=()):
+    """Morning birdsong from the hedges: a few birds, each keeping to one kind of call and one spot in the stereo
+    field, singing phrases at random. `quiet` is a list of (t0, t1) seconds where they hold off."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * SR)
+    x = np.zeros((n, 2), dtype=np.float32)
+    flock = [(k, rng.uniform(-0.8, 0.8), rng.uniform(0.35, 1.0)) for k in ("tweet", "trill", "whistle", "tweet")]
+    t0 = rng.uniform(0.5, 2.0)
+    while t0 < seconds - 2:
+        kind, p, near = flock[rng.integers(len(flock))]
+        if not any(a <= t0 < b for a, b in quiet):
+            c = _song_bird(rng, kind) * near
+            i = int(t0 * SR)
+            m = min(len(c), n - i)
+            x[i:i + m, 0] += c[:m] * np.sqrt((1 - p) / 2)
+            x[i:i + m, 1] += c[:m] * np.sqrt((1 + p) / 2)
+        t0 += rng.exponential(1 / rate) + 0.6
+    x = fx.lowpass(fx.highpass(x, 1800, 2), 7500, 2)       # across the field, not at the window
+    x = x + fx.reverb(x, seconds=1.2, damp_hz=5000, predelay_ms=30, hp=1500) * 0.4
+    return fx.level(x, level_db)
+
+
+def crickets(seconds, level_db=-42.0, seed=51, count=4):
+    """A warm night: a few crickets, each chirping its own pulse train (3-4 pulses at ~30 Hz, ~2 chirps a second)
+    on its own carrier near 4.5 kHz, spread across the field. Steady and tonal, so it never reads as rain."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * SR)
+    t = np.arange(n) / SR
+    x = np.zeros((n, 2), dtype=np.float32)
+    for _ in range(count):
+        fc, pr, cr = rng.uniform(4000, 5200), rng.uniform(26, 34), rng.uniform(1.6, 2.6)
+        pulses = rng.integers(3, 5)
+        ph = rng.uniform(0, 1)
+        cyc = (t * cr + ph) % 1.0                         # position in the chirp cycle
+        on = (cyc * pr / cr < pulses).astype(np.float32)
+        pul = np.sin(np.pi * ((cyc * pr / cr) % 1.0)) ** 2 * on
+        # crickets rest and restart
+        knots = (rng.uniform(0, 1, int(seconds / 4) + 3) > 0.25).astype(float)
+        sing = np.interp(t, np.arange(len(knots)) * 4, np.convolve(knots, [0.5, 0.5], "same"))
+        s = np.sin(2 * np.pi * fc * t) * pul * sing * rng.uniform(0.4, 1.0)
+        p = rng.uniform(-0.9, 0.9)
+        x[:, 0] += s * np.sqrt((1 - p) / 2)
+        x[:, 1] += s * np.sqrt((1 + p) / 2)
+    x = fx.lowpass(x, 6500, 2)
+    x = x + fx.reverb(x, seconds=0.9, damp_hz=5000, predelay_ms=20, hp=2000) * 0.3
+    return fx.level(x, level_db)
