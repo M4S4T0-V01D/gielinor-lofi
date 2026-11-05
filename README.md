@@ -146,8 +146,8 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     dragged over two at phrase ends (two of them 'rubber', stretching harder as they go), the bridge's last two
     bars at half speed and the same pitch, the break stretched out to a crawl over the last four bars, and the
     stretched 'ooh' pads.
-    Its 90s jungle effects are its own too: a dub siren into the drop, breakdown and outro, 8-bit orchestra-hit
-    stabs on the bass root in drop 2, an 808 boom under each drop, a pitched snare rush closing each drop, a
+    Its 90s jungle effects are its own too: a dub siren into the drop, breakdown and outro, brass-and-timpani
+    stabs (the tune's own horns, trombone and pizzicato) on the bass root in drop 2, an 808 boom under each drop, a pitched snare rush closing each drop, a
     resonant filter peak riding the break in, and a crunchy parallel 'desk' bus on the break.
   - Emotion: the source's own tom pickups into both B sections, and a held breath before B1: the band drops
     for a beat and a half under a granular freeze of the F# chord (`freeze()` in songs/emotion.py).

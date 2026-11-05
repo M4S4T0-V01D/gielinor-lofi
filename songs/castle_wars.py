@@ -10,8 +10,8 @@ sampler steps it up in pitch bar by bar, and its snare is held as a rising stret
 the second drop. No tape stops, reversed pickups, echo throws, timpani rolls, underwater dips
 or wind gusts: those belong to the other tracks.
 The 90s jungle effects, all synthesized or cut from the break: a dub siren wailing into the drop, the breakdown and
-the outro; 8-bit orchestra-hit stabs on the bass root through drop 2; a falling 808 boom under each drop; a pitched
-snare rush (16ths into 32nds, rising a fifth) closing each drop; a resonant filter peak riding the break in through
+the outro; brass-and-timpani stabs (horns, trombone, pizzicato) on the bass root through drop 2; a falling 808
+boom under each drop; a pitched snare rush (16ths into 32nds, rising a fifth) closing each drop; a resonant filter peak riding the break in through
 the build; and the break pushed into a crunchy parallel 'desk' bus.
 Timestretch, the way a 90s sampler did it (akai(): fixed grains read slower than written, so it buzzes): the
 source's choir, sung as Voice Oohs, stretched to half speed as the intro and outro pads, with a robot octave
@@ -431,13 +431,20 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     bass = N.shift(bass, 0, KEY)
     tl.put_full("reese", reese(bass, n))
     tl.put_full("sub", PT.sub(bass, BPM, n, level=0.5))
-    stabs = []                                                         # orchestra hits on the root through drop 2
-    for b0 in range(80, 111):
+    horns, bones, pizz, timp = [], [], [], []                          # a brass-and-timpani hit on the root through
+    for b0 in range(80, 111):                                          # drop 2, from the tune's own band
         for at in ([0.0] if b0 % 4 == 0 else []) + ([2.5, 3.25] if b0 % 8 == 6 else []):
-            r = root_at(bass, b0 * 4 + at)
-            if r is not None:
-                stabs += [N.Note(b0 * 4 + at, 0.4, r + d, 112) for d in (12, 19, 24)]
-    tl.put_full("stab", fluid([(stabs, 55, 0, 0)], BPM, tail=1.5))
+            st = b0 * 4 + at
+            r = root_at(bass, st)
+            if r is None:
+                continue
+            pc = r % 12
+            horns += [N.Note(st, 0.3, 48 + pc + d, 110) for d in (12, 19, 24)]
+            bones += [N.Note(st, 0.3, 36 + pc + d, 105) for d in (12, 19)]
+            pizz += [N.Note(st, 0.25, 60 + pc + d, 100) for d in (0, 7, 12)]
+            timp.append(N.Note(st, 0.5, 36 + pc + (12 if pc < 5 else 0), 120))
+    tl.put_full("stab", fluid([(horns, 60, 0, 0), (bones, 57, 0, 1), (pizz, 45, 0, 2), (timp, 47, 0, 3)],
+                              BPM, tail=1.5))
 
     # --- processing -----------------------------------------------------------------------------------------
     b = tl.bus
@@ -485,8 +492,8 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     b["break"] = b["break"] + fx.compress(desk, -20, 6, 1, 60) * 0.3
     sr_ = fx.reverb(b["siren"], seconds=2.6, damp_hz=3000, predelay_ms=30, seed=47)
     b["siren"] = fx.autopan(b["siren"] + sr_ * 0.6, rate=BPM / 60 / 4, depth=0.5)
-    sb = fx.bitcrush(fx.highpass(b["stab"], 250, 2), 8, 11025)             # an 8-bit sampler hit
-    b["stab"] = fx.widen(fx.saturate(sb, 1.8), 1.3)
+    sb = fx.bitcrush(fx.highpass(b["stab"], 90, 2), 12, 22050, mix=0.4)    # a sampled brass hit, lightly crunched
+    b["stab"] = fx.widen(fx.saturate(sb, 1.3), 1.2)
     b["boom"] = fx.lowpass(b["boom"], 220, 2)
 
     rz = fx.highpass(b["reese"], 70, 2)
