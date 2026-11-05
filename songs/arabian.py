@@ -7,7 +7,10 @@ pressed as a breathy ney (shakuhachi), the kalimba B section as a santur (dulcim
 synth bass and sub, a shenai doubling the ney in A3 into a ping-pong echo, an oud doubling the ostinato in A3, and a
 kit with a darbuka layer (maqsum in the A sections, a 3+3+2 malfuf in B), a riq that wanders across the field and
 a finger-cymbal every four bars. The move: the band drops out and the source's own drum tracks play alone under an
-oud taqsim on a held drone, until a darbuka roll throws the beat back in for B2.
+oud taqsim on a held drone, until a darbuka roll throws the beat back in for B2. The desert: the intro wavers like
+heat haze over sand and turns solid when the beat lands (the outro dissolves back into it), a koto qanun runs down
+the hijaz augmented second into each Bm11, camel bells clank from a resting caravan, a booming dune hums under the
+break, and the ney leaves an octave-up shimmer in the plate.
 """
 from __future__ import annotations
 
@@ -19,6 +22,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import numpy as np  # noqa: E402
+
+from scipy.signal import lfilter  # noqa: E402
 
 from engine import ambience as AMB, fx, master as M, notes as N, parts as PT  # noqa: E402
 from engine.render import SR, fluid  # noqa: E402
@@ -42,7 +47,8 @@ FORM = [("intro", 0, 4, 4), ("A1", 4, 8, 12), ("B1", 12, 4, 28), ("A2", 16, 8, 4
 BARS = 48
 CHART = [[("Bm11", 4)], [("Bphr", 4)]] * 2 + A + B + A + [[("Bphr", 4)]] * 4 + B * 2 + A + [[("Em9", 4)]] * 4
 LEVELS = {"sample": -21, "pad": -31, "ney": -24, "santur": -25, "shenai": -29, "oud": -27, "keys": -29,
-          "perc": -24, "bass": -27, "sub": -33, "kick": -22, "snare": -26, "hats": -36, "darb": -27, "riq": -33}
+          "perc": -24, "bass": -27, "sub": -33, "kick": -22, "snare": -26, "hats": -36, "darb": -27, "riq": -33,
+          "qanun": -28, "shimmer": -30}
 BREAK = (24 * 4, 28 * 4)
 
 # Arabian's groove: a head-nod kick on 1, e+2 and the and of 3 (1, a+1, and of 3 on odd bars) and a fat snare on 2
@@ -115,6 +121,73 @@ def tremolo(notes, rate=8):
     return out
 
 
+# the qanun's hijaz run (source key): a 32nd-note fall from the b2 through the augmented second onto the tonic
+RUN = PT.v("C5", "B4", "A4", "G4", "F#4", "E4", "D#4", "C4")
+
+
+def smooth_noise(n, rng, hz):
+    """Smooth random motion in -1..1 at about hz: white noise through two one-pole lowpasses, normalized."""
+    a = np.exp(-2 * np.pi * hz / SR)
+    y = lfilter([1 - a], [1, -a], lfilter([1 - a], [1, -a], rng.standard_normal(n)))
+    return y / (np.abs(y).max() + 1e-12)
+
+
+def heat_haze(x, amt, seed=70):
+    """Air boiling off hot sand: each channel through three delays that wander at random (a slow drift and a quick
+    quiver, about 15 cents of bend at most), blended in by amt(t) from 0 (solid) to 1 (a mirage)."""
+    rng = np.random.default_rng(seed)
+    n = len(x)
+    idx = np.arange(n, dtype=np.float64)
+    hazed = np.zeros_like(x)
+    for c in range(2):
+        for _ in range(3):
+            d = 7 + 4.5 * smooth_noise(n, rng, 0.35) + 0.5 * smooth_noise(n, rng, 2.5)
+            hazed[:, c] += np.interp(idx - d * SR / 1000, idx, x[:, c]) / 3
+    a = amt(idx / SR)[:, None]
+    return x * (1 - 0.8 * a) + fx.lowpass(hazed, 6000, 2) * a * 1.5
+
+
+def camel_bells(seconds, level_db, times, seed=71):
+    """A caravan resting in the dark: two brass camel bells (clangy, inharmonic) clank in twos and threes as the
+    animals shift, around each time in times (seconds), far off to either side."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * SR)
+    x = np.zeros((n, 2), dtype=np.float32)
+    ratios, decays = [1.0, 1.52, 2.21, 2.83, 3.71], [0.9, 0.55, 0.4, 0.28, 0.18]
+    for t0 in times:
+        f0, p = rng.choice([880.0, 1190.0]), rng.uniform(-0.8, 0.8)
+        for k in range(int(rng.integers(2, 4))):
+            i = int((t0 + k * rng.uniform(0.07, 0.16)) * SR)
+            m = min(int(1.2 * SR), n - i)
+            if m <= 0:
+                continue
+            tt = np.arange(m) / SR
+            s = sum(np.sin(2 * np.pi * f0 * r * tt + rng.uniform(0, 6)) * np.exp(-tt / d) * w
+                    for r, d, w in zip(ratios, decays, [1, 0.6, 0.45, 0.3, 0.2]))
+            s = s * rng.uniform(0.5, 1.0) * (1 - np.exp(-tt / 0.0015))
+            x[i:i + m, 0] += s * np.sqrt((1 - p) / 2)
+            x[i:i + m, 1] += s * np.sqrt((1 + p) / 2)
+    x = fx.lowpass(fx.highpass(x, 400, 2), 5000, 2)
+    x = x * 0.5 + fx.reverb(x, seconds=1.8, damp_hz=3500, predelay_ms=40, hp=400, seed=seed) * 0.8
+    return fx.level(x, level_db)
+
+
+def booming_dune(seconds, level_db, f0, amt, seed=72):
+    """A singing dune: a low rough hum on f0 (sand avalanching down a slip face), wandering a few cents and
+    breathing in level, shaped by amt(t)."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * SR)
+    t = np.arange(n) / SR
+    ph = 2 * np.pi * np.cumsum(f0 * (1 + 0.003 * smooth_noise(n, rng, 0.8))) / SR
+    breath = 0.65 + 0.35 * smooth_noise(n, rng, 0.25)
+    grit = fx.bandpass(rng.standard_normal((n, 1)), f0 * 0.8, f0 * 3.0, 2)[:, 0] * 2.0
+    y = (np.sin(ph) + 0.55 * np.sin(2 * ph + 0.4) + 0.3 * np.sin(3 * ph + 1.1)) * (1 + 0.5 * grit) * breath
+    y = fx.lowpass(y[:, None].astype(np.float32), 700, 2)
+    y = np.repeat(y, 2, axis=1) * amt(t)[:, None]
+    return fx.level(fx.widen(y + fx.reverb(y, seconds=2.5, damp_hz=900, predelay_ms=30, hp=60, seed=seed) * 0.5,
+                             1.3), level_db)
+
+
 def build(out_dir: Path, stems: bool = False) -> dict:
     tl = Timeline(BPM, BARS * 4, tail_s=7.0)
     n = tl.n
@@ -161,6 +234,22 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     oud += [(N.Note(BREAK[0] + bt, d, PT.P[p], v), tr) for bt, d, p, v, tr in TAQSIM]
     oud = N.humanize(tremolo(oud), BPM, 5, 4, seed=7)
     tl.put_full("oud", fluid([(N.shift(oud, 0, KEY), 106, 0, 3)], BPM, tail=4))        # shamisen as an oud
+
+    qanun = []                                  # a hijaz run out of every Bphr bar of the A sections into its Bm11
+    for name, b0, nb, _ in FORM:
+        if name in ("A1", "A2", "A3"):
+            for bar in range(b0, b0 + nb):
+                if CHART[bar][0][0] == "Bphr":
+                    at = bar * 4 + 3
+                    qanun += [N.Note(at + j / 8, 0.3, p, 62 + 3 * j) for j, p in enumerate(RUN)]
+                    qanun += [N.Note(at + 1, 1.5, PT.P["B3"], 80)]
+    qanun = N.humanize(qanun, BPM, 3, 5, seed=12)
+    tl.put_full("qanun", fluid([(N.shift(qanun, 0, KEY), 107, 0, 6)], BPM, tail=3))     # koto as a qanun
+    shim = []                                   # the ney an octave up, for the plate only
+    for b0, sb in ((4, 12), (16, 44), (36, 12)):
+        tn = [x for x in SRC.tracks["Track 5"] if (sb - 1) * 4 <= x.start < (sb + 16) * 4]
+        shim += [N.Note(x.start, x.dur, x.pitch + 12, x.vel) for x in from_src(tn, sb, b0 * 4)]
+    tl.put_full("shimmer", fluid([(N.shift(shim, 0, KEY), 73, 0, 7)], BPM, tail=4))
 
     bass = no_break(PT.bass(CHART[4:44], start_bar=4, vel=84, seed=8))
     bass = [x for x in bass if x.start < 44 * 4] + [N.Note(44 * 4, 7.5, PT.P["E1"], 76),
@@ -209,6 +298,9 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     b["santur"] = fx.widen(fx.detune_chorus(st, cents=6, rate=0.3, mix=0.3), 1.3)
     sh = fx.saturate(fx.bandpass(b["shenai"], 350, 3200, 2), 1.6)                 # a reed through a dusty speaker
     b["shenai"] = fx.pan(fx.wow_flutter(sh, seed=33), 0.3)
+    q = fx.bitcrush(fx.lowpass(fx.highpass(b["qanun"], 300, 2), 7500, 2), 12, 26040, mix=0.4)
+    b["qanun"] = fx.pan(fx.saturate(q, 1.2), 0.35)
+    b["shimmer"] = fx.widen(fx.lowpass(fx.highpass(b["shimmer"], 800, 2), 8000, 2), 1.5)
     b["oud"] = fx.pan(fx.saturate(fx.lowpass(fx.highpass(b["oud"], 110, 2), 4200, 2), 1.4), -0.3)
     b["perc"] = fx.saturate(fx.bitcrush(fx.lowpass(b["perc"], 7000, 2), 12, 26040), 1.5)
 
@@ -235,16 +327,21 @@ def build(out_dir: Path, stems: bool = False) -> dict:
 
     # space: a long dark plate on the ney and shenai, a room for the rest; a dotted-8th echo on the ney and a
     # quarter-note ping-pong on the shenai; the break gets a wider room
-    plate = fx.reverb(b["ney"] * 0.7 + b["shenai"] * 0.6 + b["oud"] * 0.4, seconds=3.6, damp_hz=3000,
+    plate = fx.reverb(b["ney"] * 0.7 + b["shenai"] * 0.6 + b["oud"] * 0.4 + b["shimmer"] + b["qanun"] * 0.5, seconds=3.6, damp_hz=3000,
                       predelay_ms=35, seed=35)
     room = fx.reverb(b["sample"] * 0.3 + b["keys"] * 0.45 + b["pad"] * 0.5 + b["santur"] * 0.45
-                     + b["snare"] * 0.2 + b["darb"] * 0.25 + b["perc"] * 0.3, seconds=1.7, damp_hz=3200,
+                     + b["qanun"] * 0.3 + b["snare"] * 0.2 + b["darb"] * 0.25 + b["perc"] * 0.3, seconds=1.7, damp_hz=3200,
                      predelay_ms=15, seed=36)
     echo = fx.tape_delay(b["ney"], 0.75, BPM, feedback=0.35, repeats=4, lp=2600)
     pong = fx.tape_delay(b["shenai"] + b["oud"] * 0.5, 1.0, BPM, feedback=0.4, repeats=5, lp=3000, pingpong=True)
 
     duck = fx.duck(n, tl.kicks, depth_db=2.2, release_ms=230)[:, None]
-    music = (b["sample"] + b["pad"] + b["ney"] + b["santur"] + b["shenai"] + b["oud"] + b["keys"]) * duck
+    music = (b["sample"] + b["pad"] + b["ney"] + b["santur"] + b["shenai"] + b["oud"] + b["keys"] + b["qanun"]) * duck
+
+    def mirage(tt):     # the intro is a mirage that turns solid when the beat lands; the outro melts back into one
+        return np.interp(tt, [0, bar_s(2.5), bar_s(3.9), bar_s(4), bar_s(44.5), bar_s(47.5)], [1, 1, 0.5, 0, 0, 1])
+
+    music = heat_haze(music, mirage)
     low = (b["bass"] + b["sub"]) * fx.duck(n, tl.kicks, depth_db=4.0, release_ms=160)[:, None]
     drum_bus = fx.compress(b["kick"] + b["snare"] + b["hats"] + b["darb"] + b["riq"], -16, 2.5, 10, 160,
                            makeup_db=1)
@@ -257,8 +354,21 @@ def build(out_dir: Path, stems: bool = False) -> dict:
                         bar_s(44), secs], [1.0, 1.0, 0.6, 0.6, 1.2, 1.2, 0.6, 0.6, 1.2])[:, None]
     air = (AMB.wind(secs, -44, seed=37) + AMB.crickets(secs, -43, seed=38)) * amt
     hiss = AMB.hiss(secs, -52, seed=39)
+    bells = camel_bells(secs, -41, [bar_s(b) + o for b, o in ((0.6, 0), (2.3, 0.4), (24.4, 0), (25.8, 0.9),
+                                                             (27.1, 0.3), (44.8, 0), (46.5, 0.6), (48, 1.5))])
+
+    def dune_amt(tt):   # swells up under the taqsim, a faint hum in the intro
+        return np.interp(tt, [0, bar_s(4), bar_s(4.5), bar_s(23.8), bar_s(25.5), bar_s(27.6), bar_s(28.1), secs],
+                         [0.35, 0.35, 0, 0, 1, 1, 0, 0])
+
+    dune = booming_dune(secs, -38, 440 * 2 ** ((PT.P["B2"] + KEY - 69) / 12), dune_amt)
+    def fit(x):
+        return np.pad(x[:n], ((0, n - len(x[:n])), (0, 0)))
+
+    air = air + fit(bells) + fit(dune)
 
     mix = (music + low + drum_bus * 0.85 + plate * 0.45 + room * 0.45 + echo * 0.28 + pong * 0.3 + air + hiss)
+    mix = mix + 0.22 * fx.bandpass(mix, 1800, 5200)                 # presence: the reeds and darbuka step forward
     mix = fx.wow_flutter(mix, wow_ms=0.5, wow_hz=0.35, flutter_ms=0.04, drift_ms=0.4, seed=30)
     end = int((bar_s(BARS) + 6.5) * SR)
     mix = fx.fade(mix[:end], fin_s=1.0, fout_s=4.5)
@@ -272,7 +382,8 @@ def build(out_dir: Path, stems: bool = False) -> dict:
         sd = out_dir / "stems"
         sd.mkdir(exist_ok=True)
         import soundfile as sf
-        for k, x in {**b, "plate": plate, "room": room, "echo": echo, "pong": pong, "air": air}.items():
+        for k, x in {**b, "plate": plate, "room": room, "echo": echo, "pong": pong, "air": air, "bells": bells,
+                              "dune": dune}.items():
             sf.write(str(sd / f"{k}.wav"), x[:end], SR, subtype="PCM_16")
     rep = M.report(out, BPM, [(nm, b0, b0 + nb) for nm, b0, nb, _ in FORM])
     rep["file"] = str(path)

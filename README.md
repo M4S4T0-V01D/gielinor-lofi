@@ -143,6 +143,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     range when the beat drops, and the band crossfades back into it as the song ends.
   - Arabian: the break: the band drops out and the source's own drum tracks play alone under an oud taqsim on a
     held drone, with crickets coming up, until a darbuka roll into a crash throws the beat back in for B2.
+    Its desert is its own too: a mirage intro and outro (`heat_haze()`: wandering random delays like air over
+    hot sand, turning solid when the beat lands), koto qanun runs down the hijaz augmented second into each
+    Bm11, distant camel bells (`camel_bells()`), a booming dune hum under the break (`booming_dune()`) and an
+    octave-up ney shimmer fed only to the plate.
   - Fanfare: the parade pass: at the first fanfare call the house band stops and the source's own trumpets,
     horn and drums march past the listener from left to right (distance gain, air-absorption lowpass, angle pan,
     a small Doppler bend; `parade_pass()` in songs/fanfare.py) over the park fountain, then the beat slams back.
