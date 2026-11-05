@@ -19,6 +19,7 @@ against the song's own chords.
 | - | Fanfare (Falador Park) | `fanfare.mid` (Ian Taylor), 4/4 E minor 120 bpm | 116 bpm lo-fi house, Eb minor | built, awaiting listen |
 | - | Gnomeball (Match Day) | `gnomeball.mid` (Ian Taylor), 4/4 C major 130 bpm | 124 bpm 90s piano house, Bb major | built, awaiting listen |
 | - | Flute Salad (Italo) | `flute_salad.mid` (Ian Taylor), 4/4 G minor 100 bpm | 120 bpm Italo piano house, F# minor | built, awaiting listen |
+| - | The Scallywag Stomp | Sea Shanty (above) + `sea_shanty2.mid` (Ian Taylor), 4/4 A major 100 bpm | 12/8, 76 → 100 bpm, D minor → D major | built, awaiting listen |
 
 Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
 
@@ -75,7 +76,8 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
 - **Tempo:** 72-84 bpm (Newbie Melody runs at 94 so the tune doesn't drag; Arabian is pressed half-time, so its
   tune keeps the source's speed over a 72 bpm beat; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
   120 bpm march; Gnomeball is 124 bpm 90s piano house, swing 0.54;
-  Flute Salad is 120 bpm Italo piano house sped up from 100, swing 0.52). Swing 0.57-0.60. Snare laid back by about 14 ms.
+  Flute Salad is 120 bpm Italo piano house sped up from 100, swing 0.52; The Scallywag Stomp is Sea Shanty at 76
+  followed by Sea Shanty 2 as a 12/8 jig at its own 100 bpm). Swing 0.57-0.60. Snare laid back by about 14 ms.
 - **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
 - **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
   album stays dark and warm.
@@ -124,6 +126,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     and 4. The source's latin kit (cowbell, bongos, congas, agogo, cabasa) plays on the 808 kit, auto-panned.
     The flute tune doubles as an Italo block-chord piano hook on an electric grand; synth bass 2 plays the
     source's funky bass line.
+  - The Scallywag Stomp (second half): a 12/8 jig on the docks' jazz kit (32): a bodhran (low floor tom, filtered
+    to skin) rolling triplets accented on each beat, kick on 1 and 3, snare on 2 and 4, sidestick spoons on the
+    last triplet of every beat. The strike-up is stomp-stomp-clap only; the oom-pah drops the snare for claps;
+    an oom-pah bass (root on 1, fifth below on 3, a triplet pickup into each change).
 - **No signature moves twice:** each transition trick belongs to one track. Build transitions from the song's
   own source material where you can, and only add a trick if the song needs it. Taken so far:
   - 01 Harmony: tape stop into A3, reversed pickups into A1, B and the outro, A4 stutter.
@@ -158,6 +164,13 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     speaker (`rotary()`: horn and drum rotors with Doppler and two-mic level sweep, the drum lagging) that turns
     slowly, then spins up from 0.8 to 7.5 Hz over the four bars into the drop. Also a dotted-quarter flute echo
     and a quarter ping-pong on the ocarina.
+  - The Scallywag Stomp: Sea Shanty plays through A4 (`sea_shanty.render(stomp=True)`), then lands on D minor
+    and the tavern door slams on the band and the surf (a synthesized `door()`: an instant lowpass and fade
+    behind it). The floor stomps a count-in that speeds up from 76 to 100 bpm into Sea Shanty 2, pressed as a
+    jig (straight 8ths remapped to 2:1 triplets, `jig()`). Then: the horn strikes up from the corner of the
+    room (lowpass opening), a tin whistle doubles it on the repeat with a triplet slap echo, tankards are drummed
+    on the table into the bridge (`thumps()`), the bridge plays in stop-time under the accordion, two tankards
+    clash for the last tune (`clinks()`), and at last orders the door opens back onto the sea and a gull.
 
 ## Licensing notes
 
