@@ -2,11 +2,12 @@
 
 The whole night at Port Sarim, played by one band. Sea Shanty (Port Sarim) plays as it is up to the end of its
 swaying A4; then it turns on its own B7 bars, which in the band's D minor are A7, the dominant of D major too. The
-band resolves it into Sea Shanty 2 (4/4, A major, 100 bpm) as a 12/8 jig in D major, and over its first four bars
-the same players speed up from 76 to 100 while the harbour falls away behind them. Same record treatment
+band resolves it into D major, and Sea Shanty's tune, turned major, trades lines with Sea Shanty 2's (4/4, A major,
+100 bpm, chopped and played as a 12/8 jig) until Sea Shanty 2 takes over; over the first four bars the same
+players speed up from 76 to 88 while the harbour falls away behind them. Same record treatment
 (the horn tune on the accordion, the guitars on pizzicato, the accordion's bridge on harmonica, the piccolo on
 flute), the same Rhodes, bassist, jazz kit, grooves, chains and room.
-Its own moves: the accelerando morph across the shared dominant, tankards drummed on the table into the bridge,
+Its own moves: the accelerando morph across the shared dominant, the two tunes swapping lines in major, tankards drummed on the table into the bridge,
 stop-time in the bridge, two tankards clashing for the last tune, and the door opening on the sea at the end.
 """
 from __future__ import annotations
@@ -29,7 +30,7 @@ from songs import sea_shanty as S1  # noqa: E402
 
 TITLE = "The Scallywag Stomp"
 FILE = "The Scallywag Stomp"
-BPM = 100.0                   # the second half, once it has sped up; the first is Sea Shanty at 76
+BPM = 88.0                    # the second half, once it has sped up; the first is Sea Shanty at 76
 SRC = N.load(ROOT / "source" / "sea_shanty2.mid")
 
 
@@ -48,15 +49,16 @@ def jig(notes, semis=0):
     return out
 
 
-# the morph: 76 -> 100 bpm, linear in beats over the first four bars, then 100. W(beat) is seconds from bar 0;
+# the morph: 76 -> 88 bpm, linear in beats over the first four bars, then 88. W(beat) is seconds from bar 0;
 # the second half is rendered at 60 bpm (a beat is a second) with every note moved through W.
 RAMP = 16
+_K = 60 * RAMP / (BPM - 76)
 
 
 def W(b):
     if b <= RAMP:
-        return 40 * math.log((76 + 1.5 * b) / 76)
-    return 40 * math.log(100 / 76) + (b - RAMP) * 60 / BPM
+        return _K * math.log((76 + (BPM - 76) * b / RAMP) / 76)
+    return _K * math.log(BPM / 76) + (b - RAMP) * 60 / BPM
 
 
 def warp(notes):
@@ -72,7 +74,16 @@ def bar_s(b):
 # marimba, 48-51 the last line over A / E. Chords per source bar, named here in the song's D.
 ROOTS = "AAAAAAAAEEAAAAAAEEAA" + "A" * 12 + "C" * 8 + "AAAAEEAA" + "AGAG"
 PT.VOICINGS.update({"A9": PT.v("A2", "G3", "B3", "C#4", "E4"), "A13": PT.v("A2", "G3", "C#4", "F#4"),
-                    "D13": PT.v("D3", "C4", "F#4", "B4"), "A/C#": PT.v("C#3", "G3", "A3", "E4")})
+                    "D13": PT.v("D3", "C4", "F#4", "B4"), "A/C#": PT.v("C#3", "G3", "A3", "E4"),
+                    "Bm7": PT.v("B2", "A3", "D4", "F#4")})
+
+# the swap: the front of the jig trades lines between the two songs. Song bars 0-3 and 8-11 are Sea Shanty's
+# tune (its song bars 0-3, then 4-7) turned major, which makes its "F F E F" Sea Shanty 2's "F# E F#"; song bars
+# 4-7 and 12-15 answer with Sea Shanty 2's (source bars 4-11), and from bar 16 Sea Shanty 2 runs on from its
+# bar 12. Its horn-alone bars 0-3 are cut.
+SWAP = {0: 0, 1: 1, 2: 2, 3: 3, 8: 4, 9: 5, 10: 6, 11: 7}                 # song bar -> Sea Shanty song bar
+ORDER = [None] * 4 + [4, 5, 6, 7] + [None] * 4 + [8, 9, 10, 11] + list(range(12, 52))  # -> Sea Shanty 2 bar
+MAJOR = {5: 6, 0: 1, 10: 11}                                              # D minor -> D major: F, C, Bb raised
 
 
 def chord(s):
@@ -80,20 +91,54 @@ def chord(s):
             "C": "D13" if s % 2 == 0 else "Dadd9", "G": "A/C#"}[ROOTS[s]]
 
 
+def swap_chord(s):
+    """Sea Shanty's chord on its source bar s (E minor), in D and turned major."""
+    return {"E": "D69" if s % 4 < 2 else "Dadd9", "B": "A13", "C": "Bm7", "D": "A/C#"}[S1.ROOTS[s]]
+
+
+def bar_chart(k):
+    if k in SWAP:
+        j = SWAP[k]
+        return [(swap_chord(2 * j), 2), (swap_chord(2 * j + 1), 2)]
+    return [(chord(ORDER[k]), 4)]
+
+
 def chart(s0, nb):
-    return [[(chord(s), 4)] for s in range(s0, s0 + nb)]
+    return [bar_chart(k) for k in range(s0, s0 + nb)]
 
 
-FORM = [("morph", 0, 4), ("jig A", 4, 16), ("oom-pah", 20, 12), ("stop-time", 32, 8), ("last tune", 40, 8),
-        ("last orders", 48, 4)]
-BARS = 52
-END = 51 * 4 + 3              # the final hit: bar 51, beat 4
+def chop(notes):
+    """Sea Shanty 2's notes (in source beats) laid out in ORDER."""
+    out = []
+    for k, s in enumerate(ORDER):
+        if s is not None:
+            out += [replace(x, start=x.start + (k - s) * 4) for x in notes if s * 4 <= x.start < s * 4 + 4]
+    return out
+
+
+def swap_line(track, semis):
+    """Sea Shanty's track (song beats, as triplets) on SWAP's bars, turned major, transposed by semis."""
+    src = N.remap(S1.SRC.tracks[track], 3, 2, None)
+    out = []
+    for k, j in SWAP.items():
+        for x in src:
+            if j * 4 <= x.start < j * 4 + 4:
+                c = x.pitch + S1.KEY
+                c += MAJOR.get(c % 12, c % 12) - c % 12
+                out.append(replace(x, start=x.start + (k - j) * 4, pitch=c + semis))
+    return out
+
+
+FORM = [("swap", 0, 16), ("jig A", 16, 8), ("oom-pah", 24, 12), ("stop-time", 36, 8), ("last tune", 44, 8),
+        ("last orders", 52, 4)]
+BARS = 56
+END = 55 * 4 + 3              # the final hit: bar 55, beat 4
 
 # the docks' grooves, played by the same drummer: the stomp for the tunes, four on the floor for the oom-pah,
 # hits on the one for the stop-time, then the light feel building back
 STOP = [dict(bus="kick", piece=PT.KICK, at=[0], vel=104), dict(bus="snare", piece=PT.SNARE, at=[0], vel=100)]
-GROOVE = [(0, 4, S1.FULL, 4), (4, 16, S1.FULL, 4), (20, 12, S1.DANCE, 4), (32, 4, STOP, 4), (36, 2, S1.LIGHT, 4),
-          (38, 2, S1.FULL, 2), (40, 8, S1.FULL, 4), (48, 3, S1.FULL, 4)]
+GROOVE = [(0, 4, S1.FULL, 4), (4, 20, S1.FULL, 4), (24, 12, S1.DANCE, 4), (36, 4, STOP, 4), (40, 2, S1.LIGHT, 4),
+          (42, 2, S1.FULL, 2), (44, 8, S1.FULL, 4), (52, 3, S1.FULL, 4)]
 
 
 # --- the tavern: synthesized, sparse (a crowd or dense rattle would read as rain) -----------------------------
@@ -181,58 +226,61 @@ def jig_half() -> dict:
 
     # --- the record: Sea Shanty 2 on the docks band's instruments --------------------------------------------
     # pressed a tritone-ish up: +6 in the MIDI and the record varispeeded down a semitone, so A major lands on D
-    # major with a little tape drag, like the first half's -2. The accordion's bridge (bars 32-39) is the harmonica.
-    t = {k: jig(v, 6) for k, v in SRC.tracks.items() if k not in SRC.drums}
-    bridge = lambda x: 32 * 4 <= x.start < 40 * 4  # noqa: E731
+    # major with a little tape drag, like the first half's -2. The accordion's bridge (song bars 36-43) is the harmonica.
+    t = {k: jig(chop(v), 6) for k, v in SRC.tracks.items() if k not in SRC.drums}
+    bridge = lambda x: 36 * 4 <= x.start < 44 * 4  # noqa: E731
     t["harmonica"] = [x for x in t["accordion"] if bridge(x)]
     t["accordion"] = [x for x in t["accordion"] if not bridge(x)]
     t["flute"] = N.shift(t["piccolo"], 0, -12)
     t["flute hi"] = N.shift(t["horn"], 0, 12)
     # the tune an octave down, in the docks accordion's chest register; a stray low note folds back up
     t["horn"] = [replace(x, pitch=x.pitch - 12 if x.pitch - 12 >= 46 else x.pitch) for x in t["horn"]]
+    t["ss1"] = swap_line("accordion", 1)                  # the swap's Sea Shanty lines (+1 for the record's -1)
+    t["ss1 pizz"] = swap_line("pizz", 1)
     src = replace(SRC, tracks={k: warp(v) for k, v in t.items()}, drums=set())
     rec = dict(semis=-1, dst_bar=4, curve=None)
-    tune = Record(src, ["horn"], 60.0, programs={"horn": 21}, **rec)                   # the accordion's tune
-    band = Record(src, ["steel guitar", "nylon", "marimba", "accordion", "bandeon"], 60.0,
-                  programs={"steel guitar": 45, "nylon": 45, "marimba": 45, "accordion": 21, "bandeon": 21},
-                  vel={"steel guitar": 0.8, "nylon": 0.75, "marimba": 0.8, "accordion": 0.65, "bandeon": 0.7}, **rec)
+    tune = Record(src, ["horn", "ss1"], 60.0, programs={"horn": 21, "ss1": 21}, vel={"ss1": 1.2}, **rec)  # the accordion's tune
+    band = Record(src, ["steel guitar", "nylon", "marimba", "accordion", "bandeon", "ss1 pizz"], 60.0,
+                  programs={"steel guitar": 45, "nylon": 45, "marimba": 45, "accordion": 21, "bandeon": 21,
+                            "ss1 pizz": 45},
+                  vel={"steel guitar": 0.8, "nylon": 0.75, "marimba": 0.8, "accordion": 0.65, "bandeon": 0.7,
+                       "ss1 pizz": 0.8}, **rec)
     harmonica = Record(src, ["harmonica"], 60.0, programs={"harmonica": 22}, **rec)
     flute = Record(src, ["flute", "flute hi"], 60.0, programs={"flute": 73, "flute hi": 73},
                    vel={"flute hi": 0.85}, **rec)
 
-    place(tl, "sample", tune, 0, 4, 1.1)                              # the morph: the tune speeding up
-    place(tl, "sample", tune, 4, 16)                                    # jig A, the flute on its repeat
-    place(tl, "sample", band, 4, 16, 0.85)
-    place(tl, "flute", flute, 12, 8)
-    place(tl, "sample", band, 20, 12, 0.9)                              # oom-pah: the band, the flute's tune
-    place(tl, "flute", flute, 24, 8)
-    place(tl, "sample", tune, 31, 1, 0.8)
-    place(tl, "sample", harmonica, 32, 8)                               # stop-time: the harmonica runs on alone
-    for k in range(32, 36):                                             # ... the band only hits the one
+    place(tl, "sample", tune, 0, 24)                                    # the swap (speeding up), then jig A
+    place(tl, "sample", band, 0, 24, 0.85)
+    place(tl, "flute", flute, 16, 8)                                    # the flute on jig A
+    place(tl, "sample", band, 24, 12, 0.9)                              # oom-pah: the band, the flute's tune
+    place(tl, "flute", flute, 28, 8)
+    place(tl, "sample", tune, 35, 1, 0.8)
+    place(tl, "sample", harmonica, 36, 8)                               # stop-time: the harmonica runs on alone
+    for k in range(36, 40):                                             # ... the band only hits the one
         tl.put("sample", edge(band.beats(W(k * 4), W(k * 4) + 0.35), 2, 60), W(k * 4), 0.85)
-    place(tl, "sample", band, 36, 4, 0.85)
-    place(tl, "sample", tune, 40, 12)                                   # the last tune and last orders
-    place(tl, "sample", band, 40, 11, 0.85)
-    tl.put("sample", edge(band.beats(W(51 * 4), W(51 * 4 + 4)), 2, 40), W(51 * 4), 0.85)
+    place(tl, "sample", band, 40, 4, 0.85)
+    place(tl, "sample", tune, 44, 12)                                   # the last tune and last orders
+    place(tl, "sample", band, 44, 11, 0.85)
+    tl.put("sample", edge(band.beats(W(55 * 4), W(55 * 4 + 4)), 2, 40), W(55 * 4), 0.85)
     tl.put("sample", edge(band.beats(W(END), W(END) + 2.5), 2, 300), W(END), 0.9)
 
     # --- the Rhodes and the bass: the docks' players -----------------------------------------------------------
-    rhodes = PT.comp(chart(0, 20), start_bar=0, vel=54, seed=31, bpm=BPM)
-    rhodes += PT.comp(chart(20, 12), start_bar=20, vel=46, style="pad", bpm=BPM)    # room for the flute
-    rhodes += [x for x in PT.comp(chart(32, 4), start_bar=32, vel=60, bpm=BPM) if x.start % 4 < 0.3]
-    rhodes += PT.comp(chart(36, 15), start_bar=36, vel=54, seed=32, bpm=BPM)
+    rhodes = PT.comp(chart(0, 24), start_bar=0, vel=54, seed=31, bpm=BPM)
+    rhodes += PT.comp(chart(24, 12), start_bar=24, vel=46, style="pad", bpm=BPM)    # room for the flute
+    rhodes += [x for x in PT.comp(chart(36, 4), start_bar=36, vel=60, bpm=BPM) if x.start % 4 < 0.3]
+    rhodes += PT.comp(chart(40, 15), start_bar=40, vel=54, seed=32, bpm=BPM)
     rhodes = jig(rhodes)
-    rhodes = [replace(x, dur=0.5) if 32 * 4 <= x.start < 36 * 4 else x for x in rhodes]   # stabs on the one
+    rhodes = [replace(x, dur=0.5) if 36 * 4 <= x.start < 40 * 4 else x for x in rhodes]   # stabs on the one
     rhodes += [N.Note(END + 0.01 * j, 5, p, 58) for j, p in enumerate(PT.VOICINGS["D69"])]
-    line = N.shift(N.top_line(N.window(jig(SRC.tracks["horn"], 5), 40, 48)), 40 * 4)
+    line = N.shift(N.top_line(N.window(jig(SRC.tracks["horn"], 5), 40, 48)), 44 * 4)
     lead = PT.melody_double(line, octave=-1, vel=52)                                          # the last tune, doubled
     tl.put_full("rhodes", fluid([(warp(rhodes), 4, 0, 0)], 60.0, tail=8))
     tl.put_full("lead", fluid([(warp(lead), 4, 0, 1)], 60.0, tail=4))
 
-    bass = PT.bass(chart(0, 51), start_bar=0, seed=33, low=PT.P["D1"], high=PT.P["C#2"])
-    bass = [x if not 32 * 4 <= x.start < 36 * 4 else replace(x, dur=1.2) for x in bass
-            if not (32 * 4 <= x.start < 36 * 4) or x.start % 4 < 0.3]
-    bass += [N.Note(51 * 4, 1.3, PT.P["D2"], 88), N.Note(51 * 4 + 2, 0.9, PT.P["C#2"], 80),
+    bass = PT.bass(chart(0, 55), start_bar=0, seed=33, low=PT.P["D1"], high=PT.P["C#2"])
+    bass = [x if not 36 * 4 <= x.start < 40 * 4 else replace(x, dur=1.2) for x in bass
+            if not (36 * 4 <= x.start < 40 * 4) or x.start % 4 < 0.3]
+    bass += [N.Note(55 * 4, 1.3, PT.P["D2"], 88), N.Note(55 * 4 + 2, 0.9, PT.P["C#2"], 80),
              N.Note(END, 4, PT.P["D1"], 96)]
     bass = warp(N.humanize(jig(bass), BPM, 6, 4, seed=34, push_ms=6))
     tl.put_full("bass", fluid([(bass, 33, 0, 2)], 60.0, tail=4))
@@ -257,18 +305,18 @@ def jig_half() -> dict:
 
     def ride(tt):       # open, a little darker for the oom-pah and the bridge, closing after the last hit
         f = np.full_like(tt, 5000.0)
-        f = np.where((tt > bar_s(20)) & (tt < bar_s(36)), 4400.0, f)
+        f = np.where((tt > bar_s(24)) & (tt < bar_s(40)), 4400.0, f)
         return np.where(tt > t_end + 0.6, 5000 * (400 / 5000) ** np.clip((tt - t_end - 0.6) / 3.0, 0, 1), f)
     mix, verb, echo = S1.mix_band(b, kicks, n, BPM, ride)
 
     # the tavern: tankards drummed on the table into the bridge, a mug here and there, the clash for the last tune
-    tb = [(W(28 * 4 + k), 0.5) for k in (0, 2)] + [(W(29 * 4 + k), 0.6) for k in range(4)]
-    tb += [(W(30 * 4 + k / 3), 0.65) for k in range(12) if k % 3 != 1]
-    tb += [(W(31 * 4 + k / 3), 0.7 + 0.3 * k / 11) for k in range(12)]
+    tb = [(W(32 * 4 + k), 0.5) for k in (0, 2)] + [(W(33 * 4 + k), 0.6) for k in range(4)]
+    tb += [(W(34 * 4 + k / 3), 0.65) for k in range(12) if k % 3 != 1]
+    tb += [(W(35 * 4 + k / 3), 0.7 + 0.3 * k / 11) for k in range(12)]
     table = fx.level(thumps(n, tb, seed=49), -30)
     rng = np.random.default_rng(50)
-    mugs = sorted(rng.uniform(bar_s(1.5), bar_s(50), 12))
-    tavern = fx.level(clinks(n, mugs, seed=51, cheers=(bar_s(40) - 0.06,)), -41)
+    mugs = sorted(rng.uniform(bar_s(1.5), bar_s(54), 12))
+    tavern = fx.level(clinks(n, mugs, seed=51, cheers=(bar_s(44) - 0.06,)), -41)
     return dict(band=mix, table=table, tavern=tavern, b=b, verb=verb, n=n, t_end=t_end)
 
 
@@ -331,12 +379,12 @@ def build(out_dir: Path, stems: bool = False) -> dict:
         sd = out_dir / "stems"
         sd.mkdir(exist_ok=True)
         import soundfile as sf
-        i0 = int(round(bar_s(4) * SR))                     # jig stems from its bar 4, where it reaches 100
+        i0 = int(round(bar_s(4) * SR))                     # jig stems from its bar 4, where it reaches 88
         for k, x in {**second["b"], "verb": second["verb"]}.items():
             sf.write(str(sd / f"{k}.wav"), x[i0:], SR, subtype="PCM_16")
     rep = M.report(out, S1.BPM, secs_form)
     rep["file"] = str(path)
-    rep["jig_at_100_s"] = round(t2 + bar_s(4), 2)
+    rep["jig_at_speed_s"] = round(t2 + bar_s(4), 2)
     rep["band_gain_db"] = round(rms1 - rms2 + 0.5, 2)
     (out_dir / "report.json").write_text(json.dumps(rep, indent=1))
     return rep

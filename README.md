@@ -19,7 +19,7 @@ against the song's own chords.
 | - | Fanfare (Falador Park) | `fanfare.mid` (Ian Taylor), 4/4 E minor 120 bpm | 116 bpm lo-fi house, Eb minor | built, awaiting listen |
 | - | Gnomeball (Match Day) | `gnomeball.mid` (Ian Taylor), 4/4 C major 130 bpm | 124 bpm 90s piano house, Bb major | built, awaiting listen |
 | - | Flute Salad (Italo) | `flute_salad.mid` (Ian Taylor), 4/4 G minor 100 bpm | 120 bpm Italo piano house, F# minor | built, awaiting listen |
-| - | The Scallywag Stomp | Sea Shanty (above) + `sea_shanty2.mid` (Ian Taylor), 4/4 A major 100 bpm | 12/8, 76 → 100 bpm, D minor → D major | built, awaiting listen |
+| - | The Scallywag Stomp | Sea Shanty (above) + `sea_shanty2.mid` (Ian Taylor), 4/4 A major 100 bpm | 12/8, 76 → 88 bpm, D minor → D major | built, awaiting listen |
 
 Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
 
@@ -77,7 +77,7 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   tune keeps the source's speed over a 72 bpm beat; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
   120 bpm march; Gnomeball is 124 bpm 90s piano house, swing 0.54;
   Flute Salad is 120 bpm Italo piano house sped up from 100, swing 0.52; The Scallywag Stomp is Sea Shanty at 76
-  speeding up into Sea Shanty 2 as a 12/8 jig at its own 100 bpm). Swing 0.57-0.60. Snare laid back by about 14 ms.
+  speeding up into Sea Shanty 2 as a 12/8 jig at 88 bpm, slower than its own 100). Swing 0.57-0.60. Snare laid back by about 14 ms.
 - **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
 - **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
   album stays dark and warm.
@@ -181,10 +181,12 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     slowly, then spins up from 0.8 to 7.5 Hz over the four bars into the drop. Also a dotted-quarter flute echo
     and a quarter ping-pong on the ocarina.
   - The Scallywag Stomp: one band all night. Sea Shanty plays through A4 (`sea_shanty.render(stomp=True)`), then
-    turns on its own B7 bars, which in its D minor are A7, the dominant of D major too. That resolves straight into
-    Sea Shanty 2, pressed as a jig (straight 8ths remapped to 2:1 triplets, `jig()`), and over its first four bars
-    the band accelerates from 76 to 100 bpm (every note warped through `W()`, rendered at 60 bpm), while the
-    harbour dulls and fades behind it. The same players: the horn tune on the accordion record an octave down
+    turns on its own B7 bars, which in its D minor are A7, the dominant of D major too. That resolves into the
+    swap: Sea Shanty's tune carries on turned major (F, C, Bb raised, `swap_line()`, so its "F F E F" becomes
+    Sea Shanty 2's "F# E F#"), and four-bar lines alternate between the two songs for 16 bars before Sea Shanty 2
+    runs on alone. Sea Shanty 2 is pressed as a jig (straight 8ths remapped to 2:1 triplets, `jig()`) and chopped
+    into place (`ORDER`, `chop()`; its horn-alone opening is cut). Over the first four bars the band accelerates
+    from 76 to 88 bpm (every note warped through `W()`, rendered at 60 bpm), while the harbour dulls and fades. The same players: the horn tune on the accordion record an octave down
     in the accordion's chest register (its Rhodes double too), the guitars and
     marimba on pizzicato, the accordion's bridge on harmonica, the piccolo on flute, the Rhodes and its last-tune
     double, all through Sea Shanty's chains and room (`sea_shanty.mix_band()`). Then tankards are drummed on the
