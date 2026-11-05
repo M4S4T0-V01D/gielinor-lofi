@@ -188,6 +188,8 @@ def jig_half() -> dict:
     t["accordion"] = [x for x in t["accordion"] if not bridge(x)]
     t["flute"] = N.shift(t["piccolo"], 0, -12)
     t["flute hi"] = N.shift(t["horn"], 0, 12)
+    # the tune an octave down, in the docks accordion's chest register; a stray low note folds back up
+    t["horn"] = [replace(x, pitch=x.pitch - 12 if x.pitch - 12 >= 46 else x.pitch) for x in t["horn"]]
     src = replace(SRC, tracks={k: warp(v) for k, v in t.items()}, drums=set())
     rec = dict(semis=-1, dst_bar=4, curve=None)
     tune = Record(src, ["horn"], 60.0, programs={"horn": 21}, **rec)                   # the accordion's tune
@@ -223,7 +225,7 @@ def jig_half() -> dict:
     rhodes = [replace(x, dur=0.5) if 32 * 4 <= x.start < 36 * 4 else x for x in rhodes]   # stabs on the one
     rhodes += [N.Note(END + 0.01 * j, 5, p, 58) for j, p in enumerate(PT.VOICINGS["D69"])]
     line = N.shift(N.top_line(N.window(jig(SRC.tracks["horn"], 5), 40, 48)), 40 * 4)
-    lead = PT.melody_double(line, vel=48)                                           # the last tune, doubled
+    lead = PT.melody_double(line, octave=-1, vel=52)                                          # the last tune, doubled
     tl.put_full("rhodes", fluid([(warp(rhodes), 4, 0, 0)], 60.0, tail=8))
     tl.put_full("lead", fluid([(warp(lead), 4, 0, 1)], 60.0, tail=4))
 

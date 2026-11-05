@@ -179,7 +179,8 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     turns on its own B7 bars, which in its D minor are A7, the dominant of D major too. That resolves straight into
     Sea Shanty 2, pressed as a jig (straight 8ths remapped to 2:1 triplets, `jig()`), and over its first four bars
     the band accelerates from 76 to 100 bpm (every note warped through `W()`, rendered at 60 bpm), while the
-    harbour dulls and fades behind it. The same players: the horn tune on the accordion record, the guitars and
+    harbour dulls and fades behind it. The same players: the horn tune on the accordion record an octave down
+    in the accordion's chest register (its Rhodes double too), the guitars and
     marimba on pizzicato, the accordion's bridge on harmonica, the piccolo on flute, the Rhodes and its last-tune
     double, all through Sea Shanty's chains and room (`sea_shanty.mix_band()`). Then tankards are drummed on the
     table into the bridge (`thumps()`), the bridge plays in stop-time under the harmonica, two tankards clash for
