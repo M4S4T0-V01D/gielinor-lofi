@@ -18,6 +18,7 @@ against the song's own chords.
 | - | Arabian (Al Kharid) | `arabian.mid` (Ian Taylor), 4/4 B phrygian 150 bpm | 72 bpm half-time, Bb phrygian | built, awaiting listen |
 | - | Fanfare (Falador Park) | `fanfare.mid` (Ian Taylor), 4/4 E minor 120 bpm | 116 bpm lo-fi house, Eb minor | built, awaiting listen |
 | - | Gnomeball (Match Day) | `gnomeball.mid` (Ian Taylor), 4/4 C major 130 bpm | 124 bpm 90s piano house, Bb major | built, awaiting listen |
+| - | Flute Salad (Italo) | `flute_salad.mid` (Ian Taylor), 4/4 G minor 100 bpm | 120 bpm Italo piano house, F# minor | built, awaiting listen |
 
 Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
 
@@ -73,7 +74,8 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
 
 - **Tempo:** 72-84 bpm (Newbie Melody runs at 94 so the tune doesn't drag; Arabian is pressed half-time, so its
   tune keeps the source's speed over a 72 bpm beat; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
-  120 bpm march; Gnomeball is 124 bpm 90s piano house, swing 0.54). Swing 0.57-0.60. Snare laid back by about 14 ms.
+  120 bpm march; Gnomeball is 124 bpm 90s piano house, swing 0.54;
+  Flute Salad is 120 bpm Italo piano house sped up from 100, swing 0.52). Swing 0.57-0.60. Snare laid back by about 14 ms.
 - **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
 - **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
   album stays dark and warm.
@@ -116,6 +118,12 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     909 snare on 2 and 4 with a clap on the 4 (flammed on odd bars), a ride on every off-beat in place of open
     hats, closed hats on the e and a, and the source's own cabasa 16ths; B and A2 add a tambourine on 2 and 4,
     the turn drops the kick. Syncopated bright-piano stabs and an off-beat synth bass, a mild 3 dB duck.
+  - Flute Salad: a Standard 3 kit (2) in four on the floor (fill bars drop the 4 for a clap pickup), a clap on
+    2 and 4 under a gated-reverb room with a snare on the 4 and a skip clap on the a of 2 in odd bars, straight
+    16th closed hats accented on the off-beats, one open hat on the and of 4; B adds a sidestick on the a of 2
+    and 4. The source's latin kit (cowbell, bongos, congas, agogo, cabasa) plays on the 808 kit, auto-panned.
+    The flute tune doubles as an Italo block-chord piano hook on an electric grand; synth bass 2 plays the
+    source's funky bass line.
 - **No signature moves twice:** each transition trick belongs to one track. Build transitions from the song's
   own source material where you can, and only add a trick if the song needs it. Taken so far:
   - 01 Harmony: tape stop into A3, reversed pickups into A1, B and the outro, A4 stutter.
@@ -142,6 +150,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     restart play into A2 and for full time; in the breakdown the source's woodblock becomes a dropped ball
     (`bounces()` + `thumps()`), bouncing quicker and quieter while the band returns under a rising highpass and a
     muffled kick opens up.
+  - Flute Salad: the salad spinner: in the ocarina break the pads, piano and record play through a rotary
+    speaker (`rotary()`: horn and drum rotors with Doppler and two-mic level sweep, the drum lagging) that turns
+    slowly, then spins up from 0.8 to 7.5 Hz over the four bars into the drop. Also a dotted-quarter flute echo
+    and a quarter ping-pong on the ocarina.
 
 ## Licensing notes
 
