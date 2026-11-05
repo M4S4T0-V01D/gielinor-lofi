@@ -121,6 +121,9 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     (whole-band lowpass dip) and surfacing on a wave crash, an A4 pitch sway (`fx.sway`) like a rolling deck.
   - 07 Castle Wars: the break wound up from its programmed speed to tempo over the 8 bars before drop 2
     (`wind_up`, a rising pitch ramp).
+    Its 90s jungle effects are its own too: a dub siren into the drop, breakdown and outro, 8-bit orchestra-hit
+    stabs on the bass root in drop 2, an 808 boom under each drop, a pitched snare rush closing each drop, a
+    resonant filter peak riding the break in, and a crunchy parallel 'desk' bus on the break.
   - Emotion: the source's own tom pickups into both B sections, and a held breath before B1: the band drops
     for a beat and a half under a granular freeze of the F# chord (`freeze()` in songs/emotion.py).
   - Newbie Melody: the intro and outro play through a tiny speaker (`fx.small_speaker`) that snaps open to full

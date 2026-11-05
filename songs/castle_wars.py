@@ -8,6 +8,10 @@ sampler, then chopped into jungle edits. A reese and a sub follow the source's p
 This track's move: in the breakdown the break comes back at its programmed speed and is wound up to tempo
 (a pitch ramp) into the second drop. No tape stops, reversed pickups, echo throws, timpani rolls, underwater dips
 or wind gusts: those belong to the other tracks.
+The 90s jungle effects, all synthesized or cut from the break: a dub siren wailing into the drop, the breakdown and
+the outro; 8-bit orchestra-hit stabs on the bass root through drop 2; a falling 808 boom under each drop; a pitched
+snare rush (16ths into 32nds, rising a fifth) closing each drop; a resonant filter peak riding the break in through
+the build; and the break pushed into a crunchy parallel 'desk' bus.
 """
 from __future__ import annotations
 
@@ -40,7 +44,11 @@ SRC = N.load(ROOT / "source" / "castle_wars.mid")
 FORM = [("intro", 0, 8), ("build", 8, 8), ("drop1", 16, 32), ("bridge", 48, 16), ("breakdown", 64, 8),
         ("ramp", 72, 8), ("drop2", 80, 32), ("outro", 112, 16)]
 BARS = 128
-LEVELS = {"sample": -21, "osti": -25, "strings": -28, "break": -19, "crash": -33, "reese": -27, "sub": -28}
+LEVELS = {"sample": -21, "osti": -25, "strings": -28, "break": -19, "crash": -33, "reese": -27, "sub": -28,
+          "siren": -31, "stab": -26, "boom": -22}
+SIRENS = [(14, 2, 520, 1180), (62, 2, 440, 980), (110, 2, 560, 1250)]   # (song bar, bars, from Hz, to Hz)
+BOOMS = (16, 80)
+RUSHES = (47, 111)
 
 # --- the break: two bars at the slow tempo, 16 steps a bar -------------------------------------------------------
 # kick and snare are new; tambourine (1, the pickup, 3), 8th hats, toms, open hat and the taiko march are the
@@ -143,6 +151,63 @@ def wind_up(raw, song_bars):
     return np.stack([np.interp(pos, np.arange(len(raw)), raw[:, c]) for c in range(2)], axis=1).astype(np.float32)
 
 
+def siren(seconds, f0, f1, lfo_hz=5.5, depth=0.22, seed=7):
+    """A ragga dub siren: a square-ish oscillator wailing on a triangle LFO while its centre climbs f0 -> f1."""
+    t = np.arange(int(seconds * SR)) / SR
+    lfo = 2 * np.abs((t * lfo_hz + np.random.default_rng(seed).random()) % 1 * 2 - 1) - 1
+    f = f0 * (f1 / f0) ** (t / seconds) * (1 + depth * lfo)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    osc = np.tanh(2.5 * np.sin(ph)) * 0.7 + np.sin(2 * ph) * 0.15
+    env = np.minimum(1, t / 0.25) * np.clip((seconds - t) / 0.6, 0, 1)
+    x = (osc * env).astype(np.float32)[:, None].repeat(2, axis=1)
+    return fx.lowpass(fx.highpass(x, 300, 2), 3800, 2)
+
+
+def boom(seconds=1.6, f_end=38.9):
+    """An 808 drop: a sine falling from 130 Hz to the key's low D# (38.9 Hz), with a click on the front."""
+    t = np.arange(int(seconds * SR)) / SR
+    f = f_end + (130 - f_end) * np.exp(-t / 0.09)
+    x = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.65) * np.minimum(1, t / 0.0015)
+    return np.tanh(1.6 * x).astype(np.float32)[:, None].repeat(2, axis=1)
+
+
+def root_at(bass, beat):
+    """The bass note sounding at a song beat (or the last one before it)."""
+    cur = [x for x in bass if x.start <= beat + 1e-6]
+    return max(cur, key=lambda x: x.start).pitch if cur else None
+
+
+def snare_rush(pressed, steps=24, semis=7.0):
+    """One bar: the break's snare slice in 16ths then 32nds, pitched up a fifth on the way, getting louder."""
+    p16 = 60 / SLOW / 4 * SR * 2 ** (-PUSH / 12)
+    head = pressed[int(4 * p16):int(5 * p16)]
+    bar = int(bar_s(1) * SR)
+    out = np.zeros((bar + len(head), 2), dtype=np.float32)
+    times = [k / 16 for k in range(8)] + [0.5 + k / 32 for k in range(16)]
+    for k, at in enumerate(times[:steps]):
+        slot = int((1 / 16 if at < 0.5 else 1 / 32) * bar)
+        hit = edge(varispeed(head, semis * k / (steps - 1))[:slot], 0.5, 3)
+        i0 = int(at * bar)
+        out[i0:i0 + len(hit)] += hit * (0.55 + 0.45 * k / (steps - 1))
+    return out
+
+
+def sweep_peak(x, f_of_t, q=6.0, block=256):
+    """A resonant bandpass following a cutoff curve: the squelchy peak of a 90s filter sweep."""
+    from scipy.signal import butter, sosfilt, sosfilt_zi
+    n = len(x)
+    out = np.empty_like(x)
+    zi = None
+    for i0 in range(0, n, block):
+        f = float(np.clip(f_of_t(np.array([i0 / SR]))[0], 60, SR / 2.5))
+        lo, hi = f * (1 - 0.5 / q), f * (1 + 0.5 / q)
+        sos = butter(1, [lo / (SR / 2), hi / (SR / 2)], "bandpass", output="sos")
+        if zi is None:
+            zi = np.zeros((sos.shape[0], 2, x.shape[1]))
+        out[i0:i0 + block], zi = sosfilt(sos, x[i0:i0 + block], axis=0, zi=zi)
+    return out.astype(np.float32)
+
+
 def bass_from_pizz(rec_bar, song_bar, nbars):
     """The pizzicato's low line, held legato, registered between C#2 and C3 (source key)."""
     ns = [x for x in N.window(SRC.tracks["pizzicato"], rec_bar, rec_bar + nbars) if x.pitch < 52]
@@ -230,7 +295,17 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     drop2 = [CHOP, CHOP2, CHOP, EDIT, CHOP2, CHOP, CHOP2, ROLL] * 2
     chop(tl, pressed, drop2, 80)
     chop(tl, pressed, [STRAIGHT, CHOP, STRAIGHT, EDIT], 112)
+    rush = snare_rush(pressed)
+    for b0 in RUSHES:                                                  # the drop's last bar becomes a snare rush
+        i0, i1 = int(bar_s(b0) * SR), int(bar_s(b0 + 1) * SR)
+        tl.bus["break"][i0:i1] *= np.linspace(1, 0, i1 - i0)[:, None] ** 8
+        tl.kicks = [k for k in tl.kicks if not bar_s(b0) + 0.05 <= k < bar_s(b0 + 1)]
+        tl.put("break", rush, b0 * 4, 0.7)
     tl.kicks.sort()
+    for b0, nb, f0, f1 in SIRENS:
+        tl.put("siren", siren(bar_s(nb) + 0.6, f0, f1, seed=b0), b0 * 4)
+    for b0 in BOOMS:
+        tl.put("boom", boom(), b0 * 4)
 
     crash = varispeed(fluid([([N.Note(0, 2, 57, 104)], KIT, 128, 9)], SLOW, tail=2.5, gain=0.6), PUSH)
     for b0 in (16, 24, 40, 48, 80, 96, 112, 120):
@@ -244,13 +319,20 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     bass = N.shift(bass, 0, KEY)
     tl.put_full("reese", reese(bass, n))
     tl.put_full("sub", PT.sub(bass, BPM, n, level=0.5))
+    stabs = []                                                         # orchestra hits on the root through drop 2
+    for b0 in range(80, 111):
+        for at in ([0.0] if b0 % 4 == 0 else []) + ([2.5, 3.25] if b0 % 8 == 6 else []):
+            r = root_at(bass, b0 * 4 + at)
+            if r is not None:
+                stabs += [N.Note(b0 * 4 + at, 0.4, r + d, 112) for d in (12, 19, 24)]
+    tl.put_full("stab", fluid([(stabs, 55, 0, 0)], BPM, tail=1.5))
 
     # --- processing -----------------------------------------------------------------------------------------
     b = tl.bus
 
     def ride(t):        # opens through the intro, dims for the breakdown, closes through the outro
         f = np.full_like(t, 6000.0)
-        f = np.where(t < bar_s(16), 500 * (6000 / 500) ** np.clip(t / bar_s(16), 0, 1) ** 1.3, f)
+        f = np.where(t < bar_s(16), 800 * (6000 / 800) ** np.clip(t / bar_s(16), 0, 1) ** 1.3, f)
         f = np.where((t > bar_s(64)) & (t < bar_s(80)), 3200.0, f)
         o0, o1 = bar_s(120), bar_s(127.5)
         f = np.where(t > o0, 6000 * (400 / 6000) ** np.clip((t - o0) / (o1 - o0), 0, 1), f)
@@ -279,6 +361,15 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     br = fx.compress(fx.saturate(fx.shelf_tilt(br, 900, 2.0), 1.7), -18, 4, 2, 90, makeup_db=2)
     b["break"] = fx.sweep_lowpass(br, break_ride)
     b["crash"] = fx.lowpass(fx.bitcrush(fx.highpass(b["crash"], 400, 2), 12, 26040), 9000, 2)
+    peak = sweep_peak(b["break"], lambda t: np.where((t >= bar_s(8)) & (t < bar_s(16)), break_ride(t), 20.0))
+    b["break"] = b["break"] + peak * 1.4 * (np.arange(n) < int(bar_s(16) * SR))[:, None]
+    desk = fx.saturate(fx.bandpass(b["break"], 180, 7000, 2), 5.0)        # the break pushed into the desk
+    b["break"] = b["break"] + fx.compress(desk, -20, 6, 1, 60) * 0.3
+    sr_ = fx.reverb(b["siren"], seconds=2.6, damp_hz=3000, predelay_ms=30, seed=47)
+    b["siren"] = fx.autopan(b["siren"] + sr_ * 0.6, rate=BPM / 60 / 4, depth=0.5)
+    sb = fx.bitcrush(fx.highpass(b["stab"], 250, 2), 8, 11025)             # an 8-bit sampler hit
+    b["stab"] = fx.widen(fx.saturate(sb, 1.8), 1.3)
+    b["boom"] = fx.lowpass(b["boom"], 220, 2)
 
     rz = fx.highpass(b["reese"], 70, 2)
     rz = fx.sweep_lowpass(rz, lambda t: 650 * 2 ** (0.9 * np.sin(2 * np.pi * t / bar_s(4))))
@@ -288,7 +379,8 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     for k, target in LEVELS.items():
         b[k] = fx.level(b[k], target)
 
-    send = b["sample"] * 0.35 + b["osti"] * 0.3 + b["strings"] * 0.6 + b["break"] * 0.08 + b["crash"] * 0.3
+    send = (b["sample"] * 0.35 + b["osti"] * 0.3 + b["strings"] * 0.6 + b["break"] * 0.08 + b["crash"] * 0.3
+            + b["stab"] * 0.4)
     verb = fx.reverb(send, seconds=2.2, damp_hz=3600, predelay_ms=18)
 
     music = (b["sample"] + b["osti"] + b["strings"]) * fx.duck(n, tl.kicks, depth_db=2.0, release_ms=140)[:, None]
@@ -296,7 +388,7 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     drum_bus = fx.tape(fx.compress(b["break"] + b["crash"], -15, 3, 4, 120, makeup_db=1), 1.4, 12000)
     hiss = AMB.hiss(n / SR, -62, seed=46)
 
-    mix = music + low + drum_bus + verb * 0.5 + hiss
+    mix = music + b["stab"] + b["siren"] + low + b["boom"] + drum_bus + verb * 0.5 + hiss
     end = int((bar_s(BARS) + 4.5) * SR)
     mix = fx.fade(mix[:end], fin_s=0.5, fout_s=3.5)
     out = M.master(mix, -14.0, -1.0)
