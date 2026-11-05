@@ -102,6 +102,8 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   - 07 Castle Wars (a deliberate 90s jungle departure, 174 bpm): a two-bar break programmed at ~130 bpm from
     the source's own drum kinds (tambourine, 8th hats, toms, open hat, taiko in 3+3+2) plus a GM kick and snare,
     pitched up 5 semitones and chopped into edits and rolls; half-time roller in the bridge; reese + sub bass.
+    Vocals: the source choir sung as GM Voice Oohs, stretched to half speed under the intro and outro, 1:1 under
+    the ostinato, an Akai-style octave-up copy in the breakdown, and gated ragga 'ooh' chops in both drops.
   - Emotion: a brush kit (40) with a shaker in place of hats (accents on the off-8ths), the kick on 1, a+2 and 3
     (1, e+1, 3, a+3 on odd bars), the brush slap on 2 and 4 dragged 30 ms with a clap on 4, sidestick ghosts;
     the B sections are kick, sidestick and an off-8th shaker.
@@ -139,6 +141,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     (whole-band lowpass dip) and surfacing on a wave crash, an A4 pitch sway (`fx.sway`) like a rolling deck.
   - 07 Castle Wars: the break wound up from its programmed speed to tempo over the 8 bars before drop 2
     (`wind_up`, a rising pitch ramp).
+    Akai-style cyclic timestretch (`akai`, fixed grains with tiny crossfades, so it buzzes): a beat of the break
+    dragged over two at phrase ends (two of them 'rubber', stretching harder as they go), the bridge's last two
+    bars at half speed and the same pitch, the break stretched out to a crawl over the last four bars, and the
+    stretched 'ooh' pads.
     Its 90s jungle effects are its own too: a dub siren into the drop, breakdown and outro, 8-bit orchestra-hit
     stabs on the bass root in drop 2, an 808 boom under each drop, a pitched snare rush closing each drop, a
     resonant filter peak riding the break in, and a crunchy parallel 'desk' bus on the break.

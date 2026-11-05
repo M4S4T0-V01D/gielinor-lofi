@@ -12,6 +12,10 @@ The 90s jungle effects, all synthesized or cut from the break: a dub siren waili
 the outro; 8-bit orchestra-hit stabs on the bass root through drop 2; a falling 808 boom under each drop; a pitched
 snare rush (16ths into 32nds, rising a fifth) closing each drop; a resonant filter peak riding the break in through
 the build; and the break pushed into a crunchy parallel 'desk' bus.
+Timestretch, the way a 90s sampler did it (akai(): fixed grains read slower than written, so it buzzes): the
+source's choir, sung as Voice Oohs, stretched to half speed as the intro and outro pads, with a robot octave
+pitched up the same way in the breakdown and gated 'ooh' chops in the drops; a beat of the break dragged over two
+at phrase ends; the bridge's last two bars at half speed; and the break stretched out to a crawl at the end.
 """
 from __future__ import annotations
 
@@ -45,7 +49,9 @@ FORM = [("intro", 0, 8), ("build", 8, 8), ("drop1", 16, 32), ("bridge", 48, 16),
         ("ramp", 72, 8), ("drop2", 80, 32), ("outro", 112, 16)]
 BARS = 128
 LEVELS = {"sample": -21, "osti": -25, "strings": -28, "break": -19, "crash": -33, "reese": -27, "sub": -28,
-          "siren": -31, "stab": -26, "boom": -22}
+          "siren": -31, "stab": -26, "boom": -22, "vox": -24, "chops": -27}
+VOX_HITS = [(0, 3), (6, 2), (10, 3), (14, 2), (16, 3), (22, 2), (26, 2), (28, 4)]   # (16th of 2 bars, 16ths)
+STRETCH_FILLS = {23: (4, 2.0), 39: (12, "rubber"), 87: (4, 2.0), 103: (12, "rubber")}  # bar: (slice, ratio)
 SIRENS = [(14, 2, 520, 1180), (62, 2, 440, 980), (110, 2, 560, 1250)]   # (song bar, bars, from Hz, to Hz)
 BOOMS = (16, 80)
 RUSHES = (47, 111)
@@ -151,6 +157,59 @@ def wind_up(raw, song_bars):
     return np.stack([np.interp(pos, np.arange(len(raw)), raw[:, c]) for c in range(2)], axis=1).astype(np.float32)
 
 
+def akai(x, ratio, grain_ms=45.0, xf_ms=4.0, n_out=None):
+    """A 90s sampler's cyclic timestretch: fixed grains, read slower than they are written, butted together with
+    tiny crossfades, so the stretched sound warbles and buzzes at the grain rate. ratio > 1 is longer; it can be
+    a function of output progress 0..1 (then n_out sets the length)."""
+    g, xf = int(grain_ms * SR / 1000), max(1, int(xf_ms * SR / 1000))
+    L = n_out if n_out is not None else int(len(x) * ratio)
+    win = np.ones(g + xf, dtype=np.float32)
+    win[:xf], win[-xf:] = np.linspace(0, 1, xf), np.linspace(1, 0, xf)
+    out = np.zeros((L + g + xf, x.shape[1]), dtype=np.float32)
+    pos, o = 0.0, 0
+    while o < L:
+        r = ratio(o / L) if callable(ratio) else ratio
+        i = int(pos)
+        seg = x[i:i + g + xf]
+        if len(seg) < g + xf:
+            seg = np.pad(seg, ((0, g + xf - len(seg)), (0, 0)))
+        out[o:o + g + xf] += seg * win[:, None]
+        o += g
+        pos += g / r
+    return out[:L]
+
+
+def akai_pitch(x, semis, grain_ms=35.0):
+    """Pitch without tempo, the sampler way: varispeed, then timestretched back to the original length."""
+    y = varispeed(x, semis)
+    return akai(y, len(x) / len(y), grain_ms, n_out=len(x))
+
+
+def stretch_in(tl, x, bar, beats, gain=1.0):
+    """Replace a stretch of the break bus with x (the break's own slices, stretched), with short edges."""
+    b = tl.bus["break"]
+    i0 = tl.i(bar * 4 + (4 - beats))
+    i1 = min(i0 + len(x), tl.n)
+    f = int(0.004 * SR)
+    b[i0 - f:i0] *= np.linspace(1, 0, f)[:, None]
+    b[i0:i1] = 0
+    tl.put("break", edge(x, 2, 6), bar * 4 + (4 - beats), gain)
+    tl.kicks = [k for k in tl.kicks if not i0 / SR <= k < i1 / SR]
+
+
+def vox_chops(tl, vox, rec_bar, song_bar, units, seed=11):
+    """Gated 'ooh' chops off the choir, on an off-beat ragga pattern, every third one an octave up."""
+    rng = np.random.default_rng(seed)
+    loop = vox.bar(rec_bar, rec_bar + 2, tail_beats=0.5)
+    s16 = 60 / BPM / 4 * SR
+    for u in range(units):
+        for k, (st, ln) in enumerate(VOX_HITS):
+            x = loop[int(st * s16):int((st + ln) * s16 + 0.03 * SR)]
+            if k % 3 == 2:
+                x = akai_pitch(x, 12.0)
+            tl.put("chops", edge(x, 3, 30), song_bar * 4 + u * 8 + st / 4, 0.8 + 0.2 * rng.random())
+
+
 def siren(seconds, f0, f1, lfo_hz=5.5, depth=0.22, seed=7):
     """A ragga dub siren: a square-ish oscillator wailing on a triangle LFO while its centre climbs f0 -> f1."""
     t = np.arange(int(seconds * SR)) / SR
@@ -251,38 +310,53 @@ def build(out_dir: Path, stems: bool = False) -> dict:
 
     # --- the record -----------------------------------------------------------------------------------------
     rec = dict(semis=KEY, dst_bar=4, curve=None)
-    intro = Record(SRC, ["taiko drum", "french horns", "pizzicato", "timpani"], BPM, **rec)
+    intro = Record(SRC, ["taiko drum", "timpani"], BPM, **rec)
     osti = Record(SRC, ["french horns", "pizzicato", "harp", "timpani"], BPM, **rec)
     theme = Record(SRC, ["trombone", "syn brass1", "xylophone"], BPM, **rec)
-    pads = Record(SRC, ["choir ahhs", "slow strings", "tremolo strings", "church organ"], BPM, **rec)
+    pads = Record(SRC, ["slow strings", "tremolo strings", "church organ"], BPM, **rec)
+    vox = Record(SRC, ["choir ahhs"], BPM, programs={"choir ahhs": 53}, **rec)   # the choir sung as 'oohs'
     brk = Record(SRC, ["trombone", "harp", "pizzicato"], BPM, **rec)
 
-    place_bars(tl, "osti", intro, 0, 0, 8)                               # intro: the war drum, then the ostinato
-    place_bars(tl, "strings", pads, 10, 8, 8)                            # build: choir over the ostinato
+    def place_pads(rec_bar, song_bar, nbars, gain=1.0):
+        place_bars(tl, "strings", pads, rec_bar, song_bar, nbars, gain)
+        place_bars(tl, "vox", vox, rec_bar, song_bar, nbars, gain)
+
+    place_bars(tl, "osti", intro, 0, 0, 8)                               # intro: the war drum under the oohs,
+    pad = vox.bar(10, 14, tail_beats=2)                                  # stretched to half speed on the sampler
+    tl.put("vox", edge(akai(pad, 2.0, grain_ms=70, xf_ms=8), 900, 400), 0)
+    tl.put("vox", edge(akai_pitch(akai(pad, 2.0, grain_ms=70, xf_ms=8), 12.0, 50), 900, 400), 0, 0.3)
+    place_pads(10, 8, 8)                                                 # build: the oohs over the ostinato
     place_bars(tl, "osti", osti, 10, 8, 8)
     place_bars(tl, "osti", osti, 2, 16, 8)                               # drop 1: the ostinato is the hook
     place_bars(tl, "sample", theme, 17, 23, 1)                           # the trombone's pickup
     place_bars(tl, "sample", theme, 18, 24, 16)                          # the theme
     place_bars(tl, "osti", osti, 18, 24, 16, 0.75)
-    place_bars(tl, "strings", pads, 18, 24, 16, 0.8)
+    place_pads(18, 24, 16, 0.8)
     place_bars(tl, "sample", theme, 42, 40, 8)                           # the xylophone answer
     place_bars(tl, "osti", osti, 42, 40, 8, 0.75)
-    place_bars(tl, "strings", pads, 42, 40, 8)
-    place_bars(tl, "strings", pads, 74, 48, 16, 1.2)                     # bridge: choir and organ
+    place_pads(42, 40, 8)
+    place_pads(74, 48, 16, 1.2)                                          # bridge: the ooh melody and organ
     place_bars(tl, "osti", osti, 74, 48, 16, 0.8)
     place_bars(tl, "sample", brk, 138, 64, 8)                            # breakdown: D, F, then E minor
-    place_bars(tl, "strings", pads, 138, 64, 16)
+    place_pads(138, 64, 16)
     place_bars(tl, "sample", brk, 146, 72, 4, 0.5)
     place_bars(tl, "sample", theme, 57, 79, 1)                           # drop 2
     place_bars(tl, "sample", theme, 58, 80, 16)
     place_bars(tl, "osti", osti, 58, 80, 16, 0.8)
-    place_bars(tl, "strings", pads, 58, 80, 16, 0.7)
+    place_pads(58, 80, 16, 0.7)
     place_bars(tl, "sample", theme, 105, 95, 1)
     place_bars(tl, "sample", theme, 106, 96, 16)
     place_bars(tl, "osti", osti, 106, 96, 16, 0.8)
-    place_bars(tl, "strings", pads, 106, 96, 16, 0.8)
+    place_pads(106, 96, 16, 0.8)
     place_bars(tl, "osti", osti, 154, 112, 16)                           # outro: the source's own ending
-    place_bars(tl, "strings", pads, 154, 112, 16)
+    place_pads(154, 112, 16)
+    place_bars(tl, "vox", vox, 122, 112, 8)                              # outro: the oohs come back, then
+    tl.put("vox", edge(akai(pad, 2.0, grain_ms=70, xf_ms=8), 300, 2500), 120 * 4)   # stretch out like the intro
+    hi = akai_pitch(vox.bar(138, 154, tail_beats=2), 12.0, 40)          # breakdown: a robot octave over the oohs
+    tl.put("vox", edge(hi, 600, 600), 64 * 4, 0.35)
+    vox_chops(tl, vox, 10, 32, 4)                                        # ragga 'ooh' chops in the drops
+    vox_chops(tl, vox, 10, 88, 4, seed=12)
+    vox_chops(tl, vox, 10, 104, 3, seed=13)
 
     # --- the break ------------------------------------------------------------------------------------------
     raw, pressed = press_break(8)
@@ -294,7 +368,24 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     tl.put("break", edge(up, 400, 2) * np.linspace(0.45, 1.0, len(up))[:, None], 72 * 4)
     drop2 = [CHOP, CHOP2, CHOP, EDIT, CHOP2, CHOP, CHOP2, ROLL] * 2
     chop(tl, pressed, drop2, 80)
-    chop(tl, pressed, [STRAIGHT, CHOP, STRAIGHT, EDIT], 112)
+    chop(tl, pressed, [STRAIGHT, CHOP, STRAIGHT, EDIT, STRAIGHT, CHOP], 112)
+
+    # timestretches on the sampler: a beat dragged over two, the bridge's last two bars at half speed (same
+    # pitch), and the break stretched out to a crawl over the last four bars
+    p16 = 60 / SLOW / 4 * SR * 2 ** (-PUSH / 12)
+    beat = int(4 * p16)
+    for b0, (idx, ratio) in STRETCH_FILLS.items():
+        sl = pressed[int(idx * p16):int(idx * p16) + beat + int(0.05 * SR)]
+        if ratio == "rubber":                                          # stretches harder as it goes
+            x = akai(sl, lambda p: 1 + 3 * p, grain_ms=28, n_out=2 * beat)
+        else:
+            x = akai(sl, ratio, grain_ms=30)[:2 * beat]
+        stretch_in(tl, x, b0, 2)
+    half = akai(pressed[:int(16 * p16) + int(0.05 * SR)], 2.0, grain_ms=50)[:int(bar_s(2) * SR)]
+    stretch_in(tl, half, 63, 8, 0.9)
+    crawl = akai(pressed[int(32 * p16):], lambda p: 1 + 4 * p ** 1.5, grain_ms=55, xf_ms=6,
+                 n_out=int(bar_s(4) * SR))
+    stretch_in(tl, crawl, 127, 16)
     rush = snare_rush(pressed)
     for b0 in RUSHES:                                                  # the drop's last bar becomes a snare rush
         i0, i1 = int(bar_s(b0) * SR), int(bar_s(b0 + 1) * SR)
@@ -356,6 +447,11 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     st = fx.highpass(b["strings"], 200, 2)
     st = fx.sweep_lowpass(fx.bitcrush(st, 12, 26040, mix=0.5), lambda t: np.minimum(ride(t), 4200.0))
     b["strings"] = fx.widen(fx.wow_flutter(st, seed=33), 1.5) * 0.5
+    v = fx.lowpass(fx.highpass(b["vox"], 170, 2), 5200, 2)                 # the oohs: a sampled choir pad
+    v = fx.bitcrush(fx.saturate(v, 1.3), 12, 26040, mix=0.6)
+    b["vox"] = fx.widen(fx.wow_flutter(v, wow_ms=1.4, seed=34), 1.6)
+    c = fx.bitcrush(fx.highpass(b["chops"], 280, 2), 12, 22050)
+    b["chops"] = fx.autopan(fx.saturate(c, 1.6), rate=BPM / 60 / 8, depth=0.35, phase=0.25)
 
     br = fx.bitcrush(fx.highpass(b["break"], 40, 2), 12, 26040, mix=0.9)            # the sampler
     br = fx.compress(fx.saturate(fx.shelf_tilt(br, 900, 2.0), 1.7), -18, 4, 2, 90, makeup_db=2)
@@ -380,10 +476,11 @@ def build(out_dir: Path, stems: bool = False) -> dict:
         b[k] = fx.level(b[k], target)
 
     send = (b["sample"] * 0.35 + b["osti"] * 0.3 + b["strings"] * 0.6 + b["break"] * 0.08 + b["crash"] * 0.3
-            + b["stab"] * 0.4)
+            + b["stab"] * 0.4 + b["chops"] * 0.5)
     verb = fx.reverb(send, seconds=2.2, damp_hz=3600, predelay_ms=18)
+    verb = verb + fx.reverb(b["vox"], seconds=4.5, damp_hz=4200, predelay_ms=40, seed=48) * 0.9   # the cathedral
 
-    music = (b["sample"] + b["osti"] + b["strings"]) * fx.duck(n, tl.kicks, depth_db=2.0, release_ms=140)[:, None]
+    music = (b["sample"] + b["osti"] + b["strings"] + b["vox"] + b["chops"]) * fx.duck(n, tl.kicks, depth_db=2.0, release_ms=140)[:, None]
     low = (b["reese"] + b["sub"]) * fx.duck(n, tl.kicks, depth_db=3.5, release_ms=110)[:, None]
     drum_bus = fx.tape(fx.compress(b["break"] + b["crash"], -15, 3, 4, 120, makeup_db=1), 1.4, 12000)
     hiss = AMB.hiss(n / SR, -62, seed=46)
