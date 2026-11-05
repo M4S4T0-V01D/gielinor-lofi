@@ -77,7 +77,7 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   tune keeps the source's speed over a 72 bpm beat; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
   120 bpm march; Gnomeball is 124 bpm 90s piano house, swing 0.54;
   Flute Salad is 120 bpm Italo piano house sped up from 100, swing 0.52; The Scallywag Stomp is Sea Shanty at 76
-  followed by Sea Shanty 2 as a 12/8 jig at its own 100 bpm). Swing 0.57-0.60. Snare laid back by about 14 ms.
+  speeding up into Sea Shanty 2 as a 12/8 jig at its own 100 bpm). Swing 0.57-0.60. Snare laid back by about 14 ms.
 - **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
 - **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
   album stays dark and warm.
@@ -126,10 +126,9 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     and 4. The source's latin kit (cowbell, bongos, congas, agogo, cabasa) plays on the 808 kit, auto-panned.
     The flute tune doubles as an Italo block-chord piano hook on an electric grand; synth bass 2 plays the
     source's funky bass line.
-  - The Scallywag Stomp (second half): a 12/8 jig on the docks' jazz kit (32): a bodhran (low floor tom, filtered
-    to skin) rolling triplets accented on each beat, kick on 1 and 3, snare on 2 and 4, sidestick spoons on the
-    last triplet of every beat. The strike-up is stomp-stomp-clap only; the oom-pah drops the snare for claps;
-    an oom-pah bass (root on 1, fifth below on 3, a triplet pickup into each change).
+  - The Scallywag Stomp (second half): the docks' drummer on the same jazz kit (32) and Sea Shanty's own
+    grooves: the stomp feel for the tunes, its four on the floor for the oom-pah, kick and snare on the one for
+    the stop-time, then the light feel building back. The same bassist (`PT.bass`, swung 2:1 into the jig).
 - **No signature moves twice:** each transition trick belongs to one track. Build transitions from the song's
   own source material where you can, and only add a trick if the song needs it. Taken so far:
   - 01 Harmony: tape stop into A3, reversed pickups into A1, B and the outro, A4 stutter.
@@ -145,6 +144,12 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     resonant filter peak riding the break in, and a crunchy parallel 'desk' bus on the break.
   - Emotion: the source's own tom pickups into both B sections, and a held breath before B1: the band drops
     for a beat and a half under a granular freeze of the F# chord (`freeze()` in songs/emotion.py).
+    Its producer pass is its own too: a synthesized heartbeat (`heartbeat()`) under the freeze, through the B2
+    breakdown (drums and sub out, the strings ducking to each beat) and twice in the outro; a brushed ride swell
+    into a crash that brings the kit back for the B2 peak (ride on the beat, parallel-crushed drums, pads and
+    room pumping off the kick); a mix arc (section gain, width and reverb send automation, string swells through
+    each 3-bar B group); and an outro that wears away like an old tape (`wear()`: the wow deepens, the top
+    closes, the hiss rises) while the fire stays.
   - Newbie Melody: the intro and outro play through a tiny speaker (`fx.small_speaker`) that snaps open to full
     range when the beat drops, and the band crossfades back into it as the song ends.
   - Arabian: the break: the band drops out and the source's own drum tracks play alone under an oud taqsim on a
@@ -164,13 +169,15 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     speaker (`rotary()`: horn and drum rotors with Doppler and two-mic level sweep, the drum lagging) that turns
     slowly, then spins up from 0.8 to 7.5 Hz over the four bars into the drop. Also a dotted-quarter flute echo
     and a quarter ping-pong on the ocarina.
-  - The Scallywag Stomp: Sea Shanty plays through A4 (`sea_shanty.render(stomp=True)`), then lands on D minor
-    and the tavern door slams on the band and the surf (a synthesized `door()`: an instant lowpass and fade
-    behind it). The floor stomps a count-in that speeds up from 76 to 100 bpm into Sea Shanty 2, pressed as a
-    jig (straight 8ths remapped to 2:1 triplets, `jig()`). Then: the horn strikes up from the corner of the
-    room (lowpass opening), a tin whistle doubles it on the repeat with a triplet slap echo, tankards are drummed
-    on the table into the bridge (`thumps()`), the bridge plays in stop-time under the accordion, two tankards
-    clash for the last tune (`clinks()`), and at last orders the door opens back onto the sea and a gull.
+  - The Scallywag Stomp: one band all night. Sea Shanty plays through A4 (`sea_shanty.render(stomp=True)`), then
+    turns on its own B7 bars, which in its D minor are A7, the dominant of D major too. That resolves straight into
+    Sea Shanty 2, pressed as a jig (straight 8ths remapped to 2:1 triplets, `jig()`), and over its first four bars
+    the band accelerates from 76 to 100 bpm (every note warped through `W()`, rendered at 60 bpm), while the
+    harbour dulls and fades behind it. The same players: the horn tune on the accordion record, the guitars and
+    marimba on pizzicato, the accordion's bridge on harmonica, the piccolo on flute, the Rhodes and its last-tune
+    double, all through Sea Shanty's chains and room (`sea_shanty.mix_band()`). Then tankards are drummed on the
+    table into the bridge (`thumps()`), the bridge plays in stop-time under the harmonica, two tankards clash for
+    the last tune (`clinks()`), and after last orders the tavern door opens onto the sea and a gull.
 
 ## Licensing notes
 

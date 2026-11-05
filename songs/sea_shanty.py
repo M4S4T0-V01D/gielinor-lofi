@@ -82,7 +82,8 @@ def place_bars(tl, bus, rec, src_bar, song_bar, nbars, gain=1.0):
 
 def render(stomp: bool = False) -> dict:
     """The band and the harbour, before vinyl, hiss and the master. stomp=True is the first half of The Scallywag
-    Stomp: no outro, the band lands on D minor on bar 48 while the surf swells, and the stomp takes it from there."""
+    Stomp: no outro; bar 48 turns on the dominant (A7, shared by D minor and D major) and Sea Shanty 2 takes the
+    band from bar 49."""
     tl = Timeline(BPM, BARS * 4, tail_s=8.0)
     n = tl.n
 
@@ -108,8 +109,9 @@ def render(stomp: bool = False) -> dict:
     place_bars(tl, "sample", squeeze, 32, 32, 8)                       # A3: the tune's last pass, flute on top
     place_bars(tl, "flute", flute, 8, 32, 8, 0.9)
     place_bars(tl, "sample", squeeze, 16, 40, 8)                       # A4: the variation, swaying (below)
-    if stomp:                                                          # the landing: the tune's last bar, once
-        tl.put("sample", edge(squeeze.beats(79 * 2, 79 * 2 + 2.5), 2, 300), 48 * 4, 0.9)
+    if stomp:                                                          # the turn: the tune's own B7 bars, which are
+        tl.put("sample", edge(squeeze.beats(2, 4.2), 2, 30), 48 * 4, 0.9)          # also Sea Shanty 2's dominant
+        tl.put("sample", edge(squeeze.beats(10, 12.3), 2, 60), 48 * 4 + 2, 0.9)
     else:
         place_bars(tl, "sample", squeeze, 36, 48, 4, 0.85)             # outro: the filter closes on the tune
 
@@ -117,10 +119,12 @@ def render(stomp: bool = False) -> dict:
     rhodes = PT.comp(CHART[2:51], start_bar=2, vel=54, seed=5, bpm=BPM)
     rhodes = [x for x in rhodes if not (20 * 4 <= x.start < 28 * 4)]
     rhodes += PT.comp(chart(48, 16), start_bar=20, vel=46, style="pad", bpm=BPM)   # B: room for the harmonica
-    end_bar = 48 if stomp else 51
+    turn = [[("B7b13", 2), ("B7", 2)]]                                 # stomp: the dominant both keys share
     if stomp:
         rhodes = [x for x in rhodes if x.start < 48 * 4 - 0.1]
-    rhodes += PT.comp([[("Em9", 4)]], start_bar=end_bar, vel=50, style="pad", bpm=BPM)
+        rhodes += PT.comp(turn, start_bar=48, vel=56, seed=9, bpm=BPM)
+    else:
+        rhodes += PT.comp([[("Em9", 4)]], start_bar=51, vel=50, style="pad", bpm=BPM)
     rhodes = [N.Note(x.start, x.dur + (6 if x.start >= 51 * 4 else 0), x.pitch, x.vel) for x in rhodes]
     tune = N.top_line(N.window(N.remap(SRC.tracks["accordion"], 3, 2, None), 16, 24))
     lead = PT.melody_double(N.shift(tune, 40 * 4), vel=48)                         # A4 Rhodes double
@@ -129,7 +133,7 @@ def render(stomp: bool = False) -> dict:
 
     bass = PT.bass(CHART[4:51], start_bar=4, seed=6)
     bass = [x for x in bass if x.start < (48 * 4 - 0.1 if stomp else 50 * 4)]
-    bass += [N.Note(end_bar * 4, 3 if stomp else 6, PT.P["E1"], 80)]
+    bass += PT.bass(turn, start_bar=48, seed=8) if stomp else [N.Note(51 * 4, 6, PT.P["E1"], 80)]
     bass = N.humanize(N.swing(bass, 0.58), BPM, 6, 4, seed=7, push_ms=6)
     bass = N.shift(bass, 0, KEY)
     tl.put_full("bass", fluid([(bass, 33, 0, 2)], BPM, tail=4))
@@ -144,9 +148,9 @@ def render(stomp: bool = False) -> dict:
             continue
         for piece, ns in PT.groove(nb, b0, feel, seed=50 + b0, steps=12, bpm=BPM).items():
             drums[piece] += ns
-    if stomp:                                                          # the band's last hit
-        drums["kick"].append(N.Note(48 * 4, 0.5, PT.KICK, 108))
-        drums["snare"] += [N.Note(48 * 4, 0.5, PT.SNARE, 100), N.Note(48 * 4, 0.5, PT.CLAP, 80)]
+    if stomp:                                                          # a fill bar over the turn
+        for piece, ns in PT.groove(1, 48, FULL, seed=98, fill_every=1, steps=12, bpm=BPM).items():
+            drums[piece] += ns
     tl.kicks = [x.start * 60 / BPM for x in drums["kick"]]
     for piece, ns in drums.items():
         tl.put_full(piece, fluid([(ns, KIT, 128, 9)], BPM, tail=2))
@@ -164,6 +168,23 @@ def render(stomp: bool = False) -> dict:
             f = np.where(t > o0, 5000 * (300 / 5000) ** np.clip((t - o0) / (o1 - o0), 0, 1), f)
         return f
 
+    t = np.arange(n) / SR
+    # A4's second half leans with the swell: ~25 cents of pitch roll per 4 s wave; the drums keep the deck steady
+    lean = np.interp(t, [bar_s(43.5), bar_s(44.5), bar_s(47.5), bar_s(48)], [0, 19, 19, 0])
+    band, verb, echo = mix_band(b, tl.kicks, n, BPM, ride, lean)
+    secs = (n + 0.5) / SR         # so int(secs * SR) == n in the generators
+    ambience = harbour(n, secs, t, stomp)
+    # the turn goes under: bar 31 sinks to ~350 Hz like a head under water, and surfaces on A3 with the crash
+    def under(tt):
+        u = np.clip((tt - bar_s(31)) / bar_s(1), 0, 1) ** 1.5
+        return np.where((tt >= bar_s(31)) & (tt < bar_s(32)), 14000 * (350 / 14000) ** u, 18000.0)
+    band = fx.sweep_lowpass(band, under)
+    return dict(band=band, **ambience, b=b, verb=verb, echo=echo, n=n, secs=secs)
+
+
+def mix_band(b, kicks, n, bpm, ride, lean=None):
+    """The band's chains, room and sidechain (shared with The Scallywag Stomp). Levels the buses in b in place;
+    returns (band, verb, echo)."""
     s = fx.highpass(b["sample"], 140, 2)
     s = fx.bitcrush(s, 12, 26040, mix=0.85)
     s = fx.saturate(s, 1.6)
@@ -195,35 +216,28 @@ def render(stomp: bool = False) -> dict:
     # space: a harbour tavern room; the flute and the Rhodes double get the tape echo
     send = b["sample"] * 0.35 + b["rhodes"] * 0.5 + b["flute"] * 0.5 + b["snare"] * 0.25 + b["lead"] * 0.4
     verb = fx.reverb(send, seconds=2.4, damp_hz=3200, predelay_ms=25)
-    echo = fx.tape_delay(b["flute"] + b["lead"] * 0.8, 0.75, BPM, feedback=0.35, repeats=4, lp=2600)
+    echo = fx.tape_delay(b["flute"] + b["lead"] * 0.8, 0.75, bpm, feedback=0.35, repeats=4, lp=2600)
 
-    duck = fx.duck(n, tl.kicks, depth_db=2.5, release_ms=200)[:, None]
+    duck = fx.duck(n, kicks, depth_db=2.5, release_ms=200)[:, None]
     music = (b["sample"] + b["flute"] + b["rhodes"] + b["lead"]) * duck
-    low = (b["bass"] + b["sub"]) * fx.duck(n, tl.kicks, depth_db=4, release_ms=140)[:, None]
-    # A4's second half leans with the swell: ~25 cents of pitch roll per 4 s wave; the drums keep the deck steady
-    t = np.arange(n) / SR
-    lean = np.interp(t, [bar_s(43.5), bar_s(44.5), bar_s(47.5), bar_s(48)], [0, 19, 19, 0])
-    music, low = fx.sway(music, lean, 0.25), fx.sway(low, lean, 0.25)
+    low = (b["bass"] + b["sub"]) * fx.duck(n, kicks, depth_db=4, release_ms=140)[:, None]
+    if lean is not None:
+        music, low = fx.sway(music, lean, 0.25), fx.sway(low, lean, 0.25)
     drum_bus = fx.compress(b["kick"] + b["snare"] + b["hats"], -16, 2.5, 12, 160, makeup_db=1)
     drum_bus = fx.tape(drum_bus, 1.3, 11000)
+    return music + low + drum_bus * 0.85 + verb * 0.6 + echo * 0.35, verb, echo
 
-    # ambience: the harbour - surf and gulls up front, back behind the music, then back again for the outro
-    secs = (n + 0.5) / SR         # so int(secs * SR) == n in the generators
-    sea_end = ([bar_s(47), bar_s(48.2), secs], [0.5, 0.9, 0.9]) if stomp else ([bar_s(48), bar_s(50), secs],
+
+def harbour(n, secs, t, stomp):
+    """Surf and gulls up front, back behind the music, then back again for the outro."""
+    sea_end = ([bar_s(48), secs], [0.5, 0.5]) if stomp else ([bar_s(48), bar_s(50), secs],
                                                                                [0.5, 1.0, 1.0])
     sea_amt = np.interp(t, [0, bar_s(3), bar_s(4.5), bar_s(31), bar_s(32), bar_s(33)] + sea_end[0],
                         [1.0, 1.0, 0.5, 0.5, 0.8, 0.5] + sea_end[1])[:, None]
     sea = AMB.waves(secs, -27, seed=51, crashes=(bar_s(32),)) * sea_amt
     gull_times = (0.6, bar_s(2) + 0.3) + ((bar_s(48) + 0.4,) if stomp else (bar_s(49) + 0.5, bar_s(51) + 1.0))
     gulls = AMB.gulls(secs, -31, seed=52, rate=1 / 30, times=gull_times) * np.minimum(1.0, sea_amt * 1.4)
-
-    band = music + low + drum_bus * 0.85 + verb * 0.6 + echo * 0.35
-    # the turn goes under: bar 31 sinks to ~350 Hz like a head under water, and surfaces on A3 with the crash
-    def under(tt):
-        u = np.clip((tt - bar_s(31)) / bar_s(1), 0, 1) ** 1.5
-        return np.where((tt >= bar_s(31)) & (tt < bar_s(32)), 14000 * (350 / 14000) ** u, 18000.0)
-    band = fx.sweep_lowpass(band, under)
-    return dict(band=band, sea=sea, gulls=gulls, b=b, verb=verb, echo=echo, n=n, secs=secs)
+    return dict(sea=sea, gulls=gulls)
 
 
 def build(out_dir: Path, stems: bool = False) -> dict:
