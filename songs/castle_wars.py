@@ -5,8 +5,9 @@ the horn-and-pizzicato ostinato keeps its march. The drums are the source's own 
 the pickup, hats, toms, crash, the taiko war march in 3+3+2) plus a kick and a snare from the same GM kit. They are
 programmed as a two-bar funk break at about 130 bpm, pitched up five semitones to 174 like a sampled break on a 90s
 sampler, then chopped into jungle edits. A reese and a sub follow the source's pizzicato bass.
-This track's move: in the breakdown the break comes back at its programmed speed and is wound up to tempo
-(a pitch ramp) into the second drop. No tape stops, reversed pickups, echo throws, timpani rolls, underwater dips
+This track's move: after the breakdown the break comes back frozen in an 8x timestretch and thaws to tempo, the
+sampler steps it up in pitch bar by bar, and its snare is held as a rising stretched buzz that cuts dead before
+the second drop. No tape stops, reversed pickups, echo throws, timpani rolls, underwater dips
 or wind gusts: those belong to the other tracks.
 The 90s jungle effects, all synthesized or cut from the break: a dub siren wailing into the drop, the breakdown and
 the outro; 8-bit orchestra-hit stabs on the bass root through drop 2; a falling 808 boom under each drop; a pitched
@@ -51,9 +52,10 @@ BARS = 128
 LEVELS = {"sample": -21, "osti": -25, "strings": -28, "break": -19, "crash": -33, "reese": -27, "sub": -28,
           "siren": -31, "stab": -26, "boom": -22, "vox": -24, "chops": -27}
 VOX_HITS = [(0, 3), (6, 2), (10, 3), (14, 2), (16, 3), (22, 2), (26, 2), (28, 4)]   # (16th of 2 bars, 16ths)
+RAMP_STEPS = [(75, 2, 40), (76, 4, 32), (77, 7, 24), (78, 12, 18)]  # (bar, semitones up, grain ms)
 STRETCH_FILLS = {23: (4, 2.0), 39: (12, "rubber"), 87: (4, 2.0), 103: (12, "rubber")}  # bar: (slice, ratio)
 SIRENS = [(14, 2, 520, 1180), (62, 2, 440, 980), (110, 2, 560, 1250)]   # (song bar, bars, from Hz, to Hz)
-BOOMS = (16, 80)
+BOOMS = (16, 72, 80)
 RUSHES = (47, 111)
 
 # --- the break: two bars at the slow tempo, 16 steps a bar -------------------------------------------------------
@@ -144,29 +146,16 @@ def chop(tl, pressed, units, song_bar, gain=1.0):
             i = j + 1
 
 
-def wind_up(raw, song_bars):
-    """The move: the break at its programmed speed, wound up to tempo over song_bars, ending on a loop start."""
-    L = int(bar_s(song_bars) * SR)
-    R = 2 ** (PUSH / 12)
-    rate = R ** (np.arange(L) / L)                                     # source samples per output sample
-    pos = np.concatenate([[0.0], np.cumsum(rate[:-1])])
-    period = 8 * 60 / SLOW * SR                                        # one 2-bar loop of the raw render
-    end = pos[-1] + rate[-1]
-    pos += np.ceil(end / period) * period - end
-    assert pos[-1] < len(raw) - 2
-    return np.stack([np.interp(pos, np.arange(len(raw)), raw[:, c]) for c in range(2)], axis=1).astype(np.float32)
-
-
-def akai(x, ratio, grain_ms=45.0, xf_ms=4.0, n_out=None):
+def akai(x, ratio, grain_ms=45.0, xf_ms=4.0, n_out=None, start=0.0):
     """A 90s sampler's cyclic timestretch: fixed grains, read slower than they are written, butted together with
     tiny crossfades, so the stretched sound warbles and buzzes at the grain rate. ratio > 1 is longer; it can be
-    a function of output progress 0..1 (then n_out sets the length)."""
+    a function of output progress 0..1 (then n_out sets the length). start is the read position in samples."""
     g, xf = int(grain_ms * SR / 1000), max(1, int(xf_ms * SR / 1000))
     L = n_out if n_out is not None else int(len(x) * ratio)
     win = np.ones(g + xf, dtype=np.float32)
     win[:xf], win[-xf:] = np.linspace(0, 1, xf), np.linspace(1, 0, xf)
     out = np.zeros((L + g + xf, x.shape[1]), dtype=np.float32)
-    pos, o = 0.0, 0
+    pos, o = float(start), 0
     while o < L:
         r = ratio(o / L) if callable(ratio) else ratio
         i = int(pos)
@@ -177,6 +166,18 @@ def akai(x, ratio, grain_ms=45.0, xf_ms=4.0, n_out=None):
         o += g
         pos += g / r
     return out[:L]
+
+
+def thaw(pressed, bars, from_ratio=8.0, grain_ms=60.0):
+    """The move: the break comes back frozen on the sampler, stretched 8x into a buzzing smear, and un-stretches
+    to tempo over `bars`, timed so it lands on a loop start and the edits after it carry on in the groove."""
+    L = int(bar_s(bars) * SR)
+    g = int(grain_ms * SR / 1000)
+    ratio = lambda p: from_ratio ** ((1 - p) ** 2)                      # stays smeared, then snaps in
+    read = sum(g / ratio(o / L) for o in range(0, L, g))
+    period = 32 * 60 / SLOW / 4 * SR * 2 ** (-PUSH / 12)                 # one 2-bar loop of the pressed break
+    start = np.ceil(read / period) * period - read
+    return akai(pressed, ratio, grain_ms, xf_ms=6, n_out=L, start=start)
 
 
 def akai_pitch(x, semis, grain_ms=35.0):
@@ -359,13 +360,13 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     vox_chops(tl, vox, 10, 104, 3, seed=13)
 
     # --- the break ------------------------------------------------------------------------------------------
-    raw, pressed = press_break(8)
+    _, pressed = press_break(8)
     chop(tl, pressed, [STRAIGHT, STRAIGHT, STRAIGHT, EDIT], 8)
     drop1 = [STRAIGHT, CHOP, STRAIGHT, EDIT, STRAIGHT, CHOP, STRAIGHT, ROLL] * 2
     chop(tl, pressed, drop1, 16)
     chop(tl, pressed, [HALF] * 7 + [ROLL], 48)
-    up = wind_up(raw, 8)
-    tl.put("break", edge(up, 400, 2) * np.linspace(0.45, 1.0, len(up))[:, None], 72 * 4)
+    tl.put("break", edge(thaw(pressed, 2), 1, 4), 72 * 4)            # the way back: see RAMP below
+    chop(tl, pressed, [STRAIGHT, EDIT, CHOP2], 74)
     drop2 = [CHOP, CHOP2, CHOP, EDIT, CHOP2, CHOP, CHOP2, ROLL] * 2
     chop(tl, pressed, drop2, 80)
     chop(tl, pressed, [STRAIGHT, CHOP, STRAIGHT, EDIT, STRAIGHT, CHOP], 112)
@@ -386,6 +387,22 @@ def build(out_dir: Path, stems: bool = False) -> dict:
     crawl = akai(pressed[int(32 * p16):], lambda p: 1 + 4 * p ** 1.5, grain_ms=55, xf_ms=6,
                  n_out=int(bar_s(4) * SR))
     stretch_in(tl, crawl, 127, 16)
+
+    # RAMP, the way back into drop 2: the break thaws out of an 8x stretch (bars 72-73), then runs at tempo while
+    # the sampler steps its pitch up bar by bar with the grains getting shorter and buzzier, and in the last bar
+    # the snare is held, stretched into a rising robot buzz, cut dead on beat 4 so drop 2 lands out of silence
+    bb = tl.bus["break"]
+    for b0, semis, grain in RAMP_STEPS:
+        i0, i1 = int(bar_s(b0) * SR), int(bar_s(b0 + 1) * SR)
+        bb[i0:i1] = akai_pitch(bb[i0:i1].copy(), semis, grain)
+    snare = pressed[int(4 * p16):int(6 * p16)]
+    hold = akai(akai_pitch(snare, 12.0, 12), lambda p: 1 + 60 * p, grain_ms=14, xf_ms=2, n_out=3 * beat)
+    hold *= np.linspace(0.8, 1.15, len(hold))[:, None]
+    stretch_in(tl, hold, 79, 4)
+    i0, i1 = tl.i(79 * 4 + 3), tl.i(80 * 4)
+    bb[i0 - int(0.004 * SR):i0] *= np.linspace(1, 0, int(0.004 * SR))[:, None]
+    bb[i0:i1] = 0
+    tl.kicks = [k for k in tl.kicks if not i0 / SR <= k < i1 / SR]
     rush = snare_rush(pressed)
     for b0 in RUSHES:                                                  # the drop's last bar becomes a snare rush
         i0, i1 = int(bar_s(b0) * SR), int(bar_s(b0 + 1) * SR)
@@ -429,12 +446,10 @@ def build(out_dir: Path, stems: bool = False) -> dict:
         f = np.where(t > o0, 6000 * (400 / 6000) ** np.clip((t - o0) / (o1 - o0), 0, 1), f)
         return f
 
-    def break_ride(t):  # the build fades the break in from under a lowpass, the wind-up opens it again
+    def break_ride(t):  # the build fades the break in from under a lowpass
         f = np.full_like(t, 11000.0)
         a0, a1 = bar_s(8), bar_s(16)
         f = np.where((t >= a0) & (t < a1), 350 * (11000 / 350) ** np.clip((t - a0) / (a1 - a0), 0, 1) ** 2, f)
-        r0, r1 = bar_s(72), bar_s(80)
-        f = np.where((t >= r0) & (t < r1), 700 * (11000 / 700) ** np.clip((t - r0) / (r1 - r0), 0, 1) ** 1.5, f)
         return f
 
     s = fx.highpass(b["sample"], 160, 2)

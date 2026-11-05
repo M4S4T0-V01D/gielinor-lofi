@@ -139,8 +139,9 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   - 04 Book of Spells: the source's timpani roll into A3, an A4 vibes beat thrown into the tape echo.
   - 05 Sea Shanty: the source's tubular bell rung as a ship's bell into B, the turn going under water
     (whole-band lowpass dip) and surfacing on a wave crash, an A4 pitch sway (`fx.sway`) like a rolling deck.
-  - 07 Castle Wars: the break wound up from its programmed speed to tempo over the 8 bars before drop 2
-    (`wind_up`, a rising pitch ramp).
+  - 07 Castle Wars: the way back into drop 2 (bars 72-80): the break returns frozen in an 8x timestretch and
+    thaws to tempo (`thaw`), the sampler steps it up +2/+4/+7/+12 bar by bar with ever shorter grains, and the
+    snare is held as a rising stretched buzz cut dead on the last beat before the drop.
     Akai-style cyclic timestretch (`akai`, fixed grains with tiny crossfades, so it buzzes): a beat of the break
     dragged over two at phrase ends (two of them 'rubber', stretching harder as they go), the bridge's last two
     bars at half speed and the same pitch, the break stretched out to a crawl over the last four bars, and the
@@ -156,6 +157,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     room pumping off the kick); a mix arc (section gain, width and reverb send automation, string swells through
     each 3-bar B group); and an outro that wears away like an old tape (`wear()`: the wow deepens, the top
     closes, the hiss rises) while the fire stays.
+    The voice is its own as well: the source choir's top line as a Voice Oohs "ooh", one long phrase in the
+    breakdown, chopped into syllables through the peak, a last ooh in the outro, fed to the long plate. The
+    peak also opens the record filter to 9 kHz with a 2-4.5 kHz presence lift, adds sub and a driven fretless,
+    and lands its crash out of a 16th of silence (the band only; the fire keeps going).
   - Newbie Melody: the intro and outro play through a tiny speaker (`fx.small_speaker`) that snaps open to full
     range when the beat drops, and the band crossfades back into it as the song ends.
   - Arabian: the break: the band drops out and the source's own drum tracks play alone under an oud taqsim on a
