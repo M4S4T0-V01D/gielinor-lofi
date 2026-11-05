@@ -17,6 +17,7 @@ against the song's own chords.
 | - | Newbie Melody (Tutorial Island) | `newbie_melody.mid` (Ian Taylor), 4/4 C mixolydian 100 bpm | 94 bpm, B mixolydian | built, awaiting listen |
 | - | Arabian (Al Kharid) | `arabian.mid` (Ian Taylor), 4/4 B phrygian 150 bpm | 72 bpm half-time, Bb phrygian | built, awaiting listen |
 | - | Fanfare (Falador Park) | `fanfare.mid` (Ian Taylor), 4/4 E minor 120 bpm | 116 bpm lo-fi house, Eb minor | built, awaiting listen |
+| - | Gnomeball (Match Day) | `gnomeball.mid` (Ian Taylor), 4/4 C major 130 bpm | 124 bpm 90s piano house, Bb major | built, awaiting listen |
 
 Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
 
@@ -72,7 +73,7 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
 
 - **Tempo:** 72-84 bpm (Newbie Melody runs at 94 so the tune doesn't drag; Arabian is pressed half-time, so its
   tune keeps the source's speed over a 72 bpm beat; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
-  120 bpm march). Swing 0.57-0.60. Snare laid back by about 14 ms.
+  120 bpm march; Gnomeball is 124 bpm 90s piano house, swing 0.54). Swing 0.57-0.60. Snare laid back by about 14 ms.
 - **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
 - **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
   album stays dark and warm.
@@ -111,6 +112,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     every off-beat, shuffled 16th closed hats, rim ghosts; organ stabs on the off-beats pumped 7 dB by the kick.
     B and the calls add a shaker, the C breakdown drops the kick, and the source's march snare (orchestral kit)
     ticks quietly under A2.
+  - Gnomeball: an Electronic kit (24) in four on the floor with a pickup kick on the a of 4 into each phrase, a
+    909 snare on 2 and 4 with a clap on the 4 (flammed on odd bars), a ride on every off-beat in place of open
+    hats, closed hats on the e and a, and the source's own cabasa 16ths; B and A2 add a tambourine on 2 and 4,
+    the turn drops the kick. Syncopated bright-piano stabs and an off-beat synth bass, a mild 3 dB duck.
 - **No signature moves twice:** each transition trick belongs to one track. Build transitions from the song's
   own source material where you can, and only add a trick if the song needs it. Taken so far:
   - 01 Harmony: tape stop into A3, reversed pickups into A1, B and the outro, A4 stutter.
@@ -133,6 +138,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   - Fanfare: the parade pass: at the first fanfare call the house band stops and the source's own trumpets,
     horn and drums march past the listener from left to right (distance gain, air-absorption lowpass, angle pan,
     a small Doppler bend; `parade_pass()` in songs/fanfare.py) over the park fountain, then the beat slams back.
+  - Gnomeball: the game: a synthesized referee's pea whistle (`pea_whistle()`) blows for kick-off into A1, to
+    restart play into A2 and for full time; in the breakdown the source's woodblock becomes a dropped ball
+    (`bounces()` + `thumps()`), bouncing quicker and quieter while the band returns under a rising highpass and a
+    muffled kick opens up.
 
 ## Licensing notes
 
