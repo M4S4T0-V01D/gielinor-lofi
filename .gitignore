@@ -1,0 +1,7 @@
+build/
+__pycache__/
+*.pyc
+# Jagex's MIDIs: copy them from rs-sdk (see README)
+source/*.mid
+# GeneralUser GS soundfont (31 MB): download it into assets/sf2/
+assets/sf2/*.sf2

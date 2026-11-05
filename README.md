@@ -1,0 +1,116 @@
+# Gielinor Lo-Fi
+
+Lo-fi hip-hop reinterpretations of Old School RuneScape music. Each track samples a "record": the original
+Jagex MIDI, rendered with a GM soundfont, then degraded and chopped. New Rhodes, bass and drum parts are written
+against the song's own chords.
+
+| # | Track | Source | Tempo / key | Status |
+|---|-------|--------|-------------|--------|
+| 01 | Harmony (Rainy Lumbridge) | `harmony.mid` (Ian Taylor), 3/4 A minor 100 bpm | 78 bpm, G minor | done |
+| 02 | Autumn Voyage | `autumn voyage.mid` | 72 bpm, C# minor -> A minor | built, awaiting listen |
+| 03 | Yesteryear | `yesteryear.mid` | - | planned |
+| 04 | Book of Spells (Wizards' Tower) | `book of spells.mid` (Ian Taylor), 4/4 C dorian 110 bpm | 80 bpm, Bb dorian | done |
+| 05 | Sea Shanty (Port Sarim) | `sea shanty.mid` (Ian Taylor), 3/4 E minor 130 bpm | 12/8 at 76 bpm, D minor | built, awaiting listen |
+| 06 | Scape Main | `scape main.mid` | - | planned |
+| 07 | Castle Wars | `castlewars.mid`, 4/4 E minor 180 bpm | 174 bpm jungle, D# minor | built, awaiting listen |
+| - | Emotion (By the Hearth) | `emotion.mid` (Ian Taylor), 4/4 B minor 90 bpm | 84 bpm, Bb minor | built, awaiting listen |
+
+Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
+
+## Listen
+
+https://m4s4t0-v01d.github.io/gielinor-lofi/ (MP3s in `docs/audio/`; re-encode from `build/` after a rebuild).
+
+Not in the repo: the source MIDIs (`source/`) and `assets/sf2/GeneralUser-GS.sf2`, which must be downloaded from
+S. Christian Collins' GeneralUser GS page.
+
+## Build
+
+```sh
+PY=~/Documents/Projects/intelligent-jungle/.venv/bin/python   # numpy, scipy, soundfile, mido, pyloudnorm
+$PY -I build.py harmony --stems         # -> build/harmony/*.wav, *.mp3, report.json, stems/
+$PY -I tools/check.py build/harmony/stems 78 4 12 G minor       # key/tuning check over song bars 4-12
+```
+
+You also need `fluidsynth` and `ffmpeg` on PATH. Renders are cached in `build/cache` by note content, so a
+rebuild after a mix change takes seconds (about 40 s for the FX).
+
+## Workflow for a new track
+
+1. **Read the source.** Run `tools/inspect_midi.py source/x.mid map` for a bar-by-track activity map, and
+   `tools/inspect_midi.py source/x.mid <track#> <bar0> <bar1>` for the notes. Write down the sections, the
+   melody bars, and the chord per bar.
+2. **Choose tempo and key.** Use 70-90 bpm. Varispeed down (`semis=-1..-3`) to taste. Varispeed lowers the
+   pitch and the speed together, so the record is rendered fast and lands on the song tempo. A 3/4 source is
+   remapped as 3+3+2 (`notes.WALTZ_TO_FOUR`); 4/4 sources pass straight through.
+3. **Press records.** Make one `sampler.Record` per group of tracks you want to chop independently: hook,
+   melody, strings, and so on.
+4. **Arrange.** Use a `Timeline` of song beats. Lay bars with `place_bars`, and use `beats()`, `reverse()` and
+   `edge()` for chops, stutters and reversed pickups. Keep the melody intact in at least two sections, which is
+   the "recognisable" rule.
+5. **Write new parts.** Make a chord chart in A-minor-style names from `parts.VOICINGS` (add voicings as
+   needed). Then use `parts.comp` for the Rhodes, `parts.bass` + `parts.sub` for the low end, and write the
+   track's own drum groove as a `parts.groove` spec (`boom_bap` is Harmony's). Transpose with
+   `notes.shift(..., semis=KEY)`. A 3/4 tune that drags at 3+3+2 can be pressed with `dst_bar=2, curve=None`
+   (each source bar = two triplet beats, so the song is in 12/8).
+6. **Process.** Copy the chain from `songs/harmony.py`:
+   - sample: highpass, 12-bit/26 kHz crush, saturation, filter ride, wow/flutter
+   - Rhodes: chorus and saturation
+   - drums: crush and tape
+   - shared reverb and dotted-eighth tape echo
+   - kick-keyed sidechain
+   - the scene's ambience (see the rules below)
+7. **Level and master.** Set stems with `fx.level` targets (`LEVELS`). `master.master` takes the mix to
+   −14 LUFS and ≤ −1 dBTP.
+8. **Check.** Read `report.json` (LUFS, true peak, band balance, section RMS) and the output of
+   `tools/check.py` (cents offset and in-key energy of each stem).
+
+## Album cohesion rules
+
+- **Tempo:** 72-84 bpm. Swing 0.57-0.60. Snare laid back by about 14 ms.
+- **Master:** the same chain on every track: −14 LUFS, −1 dBTP, mono below 140 Hz.
+- **Sample treatment:** crush every sample at 12-bit/26.04 kHz. The sample filter tops out around 5 kHz, so the
+  album stays dark and warm.
+- **Stem levels:** use the same `LEVELS` targets everywhere. The sample is the loudest musical stem (≈ −21 dB
+  gated RMS), and the drums sit under it.
+- **Ambience:** tape hiss on every track, plus whatever the scene has from `engine/ambience.py`: rain only where
+  it's raining (Harmony), surf and gulls at sea. Anything noisy and dense reads as rain: vinyl crackle *and* its
+  surface noise, and crushed 16th hats. A dry scene gets no vinyl at all (Book of Spells), and elsewhere keep it
+  sparse (`crackle_rate` ≤ 3, ≤ −46 dB).
+- **Track shape:** a filtered intro without drums, then the A section with the hook intact, a contrast section
+  from the source's own bridge, a turnaround, the hook again with some variation, and an outro that closes the
+  filter and lets the last chord ring.
+- **Every track has its own drum groove:**
+  - 01 Harmony: `boom_bap`, swung 16th hats.
+  - 02 Autumn Voyage: a rowing stroke on a room kit: the floor tom pulls on the last 16th into each bar, the kick
+    lands on 1, the and of 2 and 3, straight 8th hats, snare on 2 and 4; the turn and C are floor tom, kick and
+    one sidestick.
+  - 04 Book of Spells: jazz ride (spang-a-lang) over a sidestick, a two-step kick, no hats; the B section is a
+    ride bell and one sidestick.
+  - 05 Sea Shanty: a 12/8 triplet grid with a stomping kick, snare on 2 and 4 with a clap on 4, a shuffled
+    tambourine and a woodblock; the dance is four on the floor.
+  - 07 Castle Wars (a deliberate 90s jungle departure, 174 bpm): a two-bar break programmed at ~130 bpm from
+    the source's own drum kinds (tambourine, 8th hats, toms, open hat, taiko in 3+3+2) plus a GM kick and snare,
+    pitched up 5 semitones and chopped into edits and rolls; half-time roller in the bridge; reese + sub bass.
+  - Emotion: a brush kit (40) with a shaker in place of hats (accents on the off-8ths), the kick on 1, a+2 and 3
+    (1, e+1, 3, a+3 on odd bars), the brush slap on 2 and 4 dragged 30 ms with a clap on 4, sidestick ghosts;
+    the B sections are kick, sidestick and an off-8th shaker.
+- **No signature moves twice:** each transition trick belongs to one track. Build transitions from the song's
+  own source material where you can, and only add a trick if the song needs it. Taken so far:
+  - 01 Harmony: tape stop into A3, reversed pickups into A1, B and the outro, A4 stutter.
+  - 02 Autumn Voyage: the source's own pedal turn and key change (C# minor -> A minor), carried over by one big
+    gust of wind (`ambience.wind(gusts=...)`).
+  - 04 Book of Spells: the source's timpani roll into A3, an A4 vibes beat thrown into the tape echo.
+  - 05 Sea Shanty: the source's tubular bell rung as a ship's bell into B, the turn going under water
+    (whole-band lowpass dip) and surfacing on a wave crash, an A4 pitch sway (`fx.sway`) like a rolling deck.
+  - 07 Castle Wars: the break wound up from its programmed speed to tempo over the 8 bars before drop 2
+    (`wind_up`, a rising pitch ramp).
+  - Emotion: the source's own tom pickups into both B sections, and a held breath before B1: the band drops
+    for a beat and a half under a granular freeze of the F# chord (`freeze()` in songs/emotion.py).
+
+## Licensing notes
+
+- The Harmony composition is © Jagex (composer Ian Taylor). These tracks are fan reinterpretations. Get
+  permission before any commercial release.
+- GeneralUser GS (`assets/sf2/`) permits use in music productions; see `assets/sf2/LICENSE.txt`.
+- All drums come from the soundfont. All ambience is synthesized.
