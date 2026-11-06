@@ -16,10 +16,12 @@ against the song's own chords.
 | - | Emotion (By the Hearth) | `emotion.mid` (Ian Taylor), 4/4 B minor 90 bpm | 84 bpm, Bb minor | built, awaiting listen |
 | - | Newbie Melody (Tutorial Island) | `newbie_melody.mid` (Ian Taylor), 4/4 C mixolydian 100 bpm | 94 bpm, B mixolydian | built, awaiting listen |
 | - | Arabian (Al Kharid) | `arabian.mid` (Ian Taylor), 4/4 B phrygian 150 bpm | 72 bpm half-time, Bb phrygian | built, awaiting listen |
+| - | Al Kharid (The Toll Gate) | `al kharid.mid` (Ian Taylor), 4/4 E hijaz 140 bpm, C# hijaz from bar 48 | 74 bpm half-time, Eb hijaz then C hijaz | built, awaiting listen |
 | - | Fanfare (Falador Park) | `fanfare.mid` (Ian Taylor), 4/4 E minor 120 bpm | 116 bpm lo-fi house, Eb minor | built, awaiting listen |
 | - | Gnomeball (Match Day) | `gnomeball.mid` (Ian Taylor), 4/4 C major 130 bpm | 124 bpm 90s piano house, Bb major | built, awaiting listen |
 | - | Flute Salad (Italo) | `flute_salad.mid` (Ian Taylor), 4/4 G minor 100 bpm | 120 bpm Italo piano house, F# minor | built, awaiting listen |
 | - | The Scallywag Stomp | Sea Shanty (above) + `sea_shanty2.mid` (Ian Taylor), 4/4 A major 100 bpm | 12/8, 76 → 88 bpm, D minor → D major | built, awaiting listen |
+| - | Nightfall (After Dark) | `nightfall.mid` (Ian Taylor), 4/4 E minor 80 bpm | 76 bpm, Eb minor | built, awaiting listen |
 
 Source MIDIs are in `~/Documents/Projects/rs-sdk/server/content/songs/`. Copy the one you need into `source/`.
 
@@ -74,7 +76,7 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
 ## Album cohesion rules
 
 - **Tempo:** 72-84 bpm (Newbie Melody runs at 94 so the tune doesn't drag; Arabian is pressed half-time, so its
-  tune keeps the source's speed over a 72 bpm beat; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
+  tune keeps the source's speed over a 72 bpm beat, and Al Kharid the same way over 74; Fanfare is a 116 bpm lo-fi house track pressed 1:1 from a
   120 bpm march; Gnomeball is 124 bpm 90s piano house, swing 0.54;
   Flute Salad is 120 bpm Italo piano house sped up from 100, swing 0.52; The Scallywag Stomp is Sea Shanty at 76
   speeding up into Sea Shanty 2 as a 12/8 jig at 88 bpm, slower than its own 100). Swing 0.57-0.60. Snare laid back by about 14 ms.
@@ -114,6 +116,10 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
   - Arabian: a power kit (16) with a darbuka layer on congas: maqsum in the A sections (doum on 1 and 3, tek on
     e+1, e+2 and 4, ka ghosts), a 3+3+2 malfuf under handclaps in B, a riq on the off-8ths auto-panned across the
     field, a finger-cymbal (triangle) every four bars.
+  - Al Kharid: the CM-64 kit (127) with a darbuka on low conga (doum) and bongos (tek, ka) that changes rhythm
+    each section: saidi in A (doum on 1, the a of 2 and 3, the kick following it, tek on the e of 1 and on 4),
+    baladi in B under handclaps, ayoub in C (doum on every beat), a bare doum with no kick in D; a tambourine on
+    the 16ths leaning on each beat, and the source's own percussion crushed underneath in C and A2.
   - Fanfare: a dance kit (26) in four on the floor, a clap on 2 and 4 with a snare under the 4, an open hat on
     every off-beat, shuffled 16th closed hats, rim ghosts; organ stabs on the off-beats pumped 7 dB by the kick.
     B and the calls add a shaker, the C breakdown drops the kick, and the source's march snare (orchestral kit)
@@ -169,6 +175,11 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     hot sand, turning solid when the beat lands), koto qanun runs down the hijaz augmented second into each
     Bm11, distant camel bells (`camel_bells()`), a booming dune hum under the break (`booming_dune()`) and an
     octave-up ney shimmer fed only to the plate.
+  - Al Kharid: the toll gate: the band stops dead on beat 2 of the last B1 bar, ten coins are counted onto the
+    counter (`coins()`, the last one spinning down) and the wooden gate creaks open (`toll_gate()`: a stick-slip
+    pulse train through plank resonances) onto the key change; at the end of the outro it swings shut with a
+    thud. Also its own: a scimitar drawn into A2 (`scimitar()`) and pickaxes pinging from the mine across the
+    breakdown (`mine()`).
   - Fanfare: the parade pass: at the first fanfare call the house band stops and the source's own trumpets,
     horn and drums march past the listener from left to right (distance gain, air-absorption lowpass, angle pan,
     a small Doppler bend; `parade_pass()` in songs/fanfare.py) over the park fountain, then the beat slams back.
@@ -192,6 +203,11 @@ rebuild after a mix change takes seconds (about 40 s for the FX).
     double, all through Sea Shanty's chains and room (`sea_shanty.mix_band()`). Then tankards are drummed on the
     table into the bridge (`thumps()`), the bridge plays in stop-time under the harmonica, two tankards clash for
     the last tune (`clinks()`), and after last orders the tavern door opens onto the sea and a gull.
+  - Nightfall: the radio dial: in the break the band drops into an old AM set (`am_radio()`: narrow band, one
+    speaker, slow selective fading), then the dial slips off the station (`dial()`) into static and a heterodyne
+    whistle sliding down, passes two other stations (a beat each of the song's own A1 vibes and B1 horns) and
+    comes back to zero beat on the station as B2 lands full range. The room is a wall clock (`clock()`) ticking
+    once a second against the beat, louder where the band is thin, with tape hiss and no vinyl.
 
 ## Licensing notes
 
